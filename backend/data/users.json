@@ -1,0 +1,22 @@
+[
+  {
+    "_id": "97shev6fimqhfrldv",
+    "name": "Nukabhattina Pravallika",
+    "email": "pravallikaruth007@gmail.com",
+    "password": "$2a$10$VpCSd3bYWcSI8l.eHLmDyeD045HC0aWupmmqKGIQ.FOs8lntEGaFu",
+    "role": "admin",
+    "avatar": "https://api.dicebear.com/7.x/adventurer/svg?seed=ab816",
+    "createdAt": "2026-06-17T02:12:37.507Z",
+    "updatedAt": "2026-06-17T02:12:37.508Z"
+  },
+  {
+    "_id": "icsp5ef77mqhg1upl",
+    "name": "Pravallika Nukabhattina",
+    "email": "23501a4443@pvpsit.ac.in",
+    "password": "$2a$10$umwIKJJ9QEMje31KlngvF.kzh.V/r.IgtDk7dJQ3vQAMg0m1vC/d6",
+    "role": "user",
+    "avatar": "https://api.dicebear.com/7.x/adventurer/svg?seed=lfqi72",
+    "createdAt": "2026-06-17T02:20:36.153Z",
+    "updatedAt": "2026-06-17T02:20:36.153Z"
+  }
+]

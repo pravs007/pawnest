@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-brand-light text-brand-dark font-sans selection:bg-brand-orange selection:text-white;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #FAF6F0;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #E6CCB2;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #D5BDAF;
+}
+
+/* Interactive Card Hover Micro-Animations */
+.hover-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 20px -8px rgba(93, 64, 55, 0.15);
+}
+
+/* Custom Calendar Transitions */
+.calendar-day-transition {
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+/* Chat bubble styling overrides */
+.markdown-chat-bubble p {
+  margin-bottom: 0.5rem;
+}
+.markdown-chat-bubble p:last-child {
+  margin-bottom: 0;
+}
+.markdown-chat-bubble ul, .markdown-chat-bubble ol {
+  padding-left: 1.25rem;
+  margin-bottom: 0.5rem;
+  list-style-type: disc;
+}
+.markdown-chat-bubble h4, .markdown-chat-bubble h3 {
+  font-weight: 600;
+  margin-top: 0.5rem;
+  margin-bottom: 0.25rem;
+}
