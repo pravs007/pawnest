@@ -1,1 +1,18 @@
-[]
+[
+  {
+    "_id": "rrd34egrrmqhqp6x9",
+    "userId": "dde26lc3xmqhkd9jc",
+    "type": "found",
+    "petName": "max",
+    "species": "Dog",
+    "breed": "lab",
+    "description": "good",
+    "location": "vijayawada",
+    "dateLostFound": "2026-06-16",
+    "contactPhone": "8897557841",
+    "photo": "https://images.unsplash.com/photo-1444212477490-ca407925329e?w=500&auto=format&fit=crop&q=60",
+    "status": "active",
+    "createdAt": "2026-06-17T07:18:41.229Z",
+    "updatedAt": "2026-06-17T07:18:41.229Z"
+  }
+]

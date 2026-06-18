@@ -1,6 +1,7 @@
 import express from 'express';
-import { User, Pet, RescueRequest, AdoptionListing, Vaccination } from '../db/db.js';
+import { User, Pet, RescueRequest, Vaccination, LostFoundReport } from '../db/db.js';
 import { auth, admin } from '../middleware/auth.js';
+import { sanitizeInput } from '../utils/validation.js';
 
 const router = express.Router();
 
@@ -12,7 +13,6 @@ router.get('/stats', auth, admin, async (req, res) => {
     const totalUsers = await User.countDocuments({});
     const totalPets = await Pet.countDocuments({});
     const totalRescues = await RescueRequest.countDocuments({});
-    const totalAdoptions = await AdoptionListing.countDocuments({});
 
     // Rescue requests breakdown
     const rescues = await RescueRequest.find({});
@@ -31,21 +31,12 @@ router.get('/stats', auth, admin, async (req, res) => {
       critical: rescues.filter(r => r.severity === 'critical').length,
     };
 
-    // Adoption listings breakdown
-    const adoptions = await AdoptionListing.find({});
-    const adoptionStats = {
-      available: adoptions.filter(a => a.status === 'available').length,
-      adopted: adoptions.filter(a => a.status === 'adopted').length,
-    };
-
     res.json({
       totalUsers,
       totalPets,
       totalRescues,
-      totalAdoptions,
       rescueStats,
-      severityStats,
-      adoptionStats
+      severityStats
     });
   } catch (err) {
     console.error('Fetch admin stats error:', err);
@@ -80,18 +71,19 @@ router.get('/users', auth, admin, async (req, res) => {
 // @access  Private (Admin Only)
 router.put('/users/:id/role', auth, admin, async (req, res) => {
   try {
+    const targetId = sanitizeInput(req.params.id);
     // Prevent admin from removing their own admin status
-    if (req.params.id === req.user.id) {
+    if (targetId === req.user.id) {
       return res.status(400).json({ message: 'You cannot change your own admin role' });
     }
 
-    const targetUser = await User.findById(req.params.id);
+    const targetUser = await User.findById(targetId);
     if (!targetUser) {
       return res.status(404).json({ message: 'User not found' });
     }
 
     const newRole = targetUser.role === 'admin' ? 'user' : 'admin';
-    const updatedUser = await User.findByIdAndUpdate(req.params.id, { role: newRole }, { new: true });
+    const updatedUser = await User.findByIdAndUpdate(targetId, { role: newRole }, { new: true });
 
     res.json({
       id: updatedUser._id || updatedUser.id,
@@ -110,17 +102,18 @@ router.put('/users/:id/role', auth, admin, async (req, res) => {
 // @access  Private (Admin Only)
 router.delete('/users/:id', auth, admin, async (req, res) => {
   try {
-    if (req.params.id === req.user.id) {
+    const targetId = sanitizeInput(req.params.id);
+    if (targetId === req.user.id) {
       return res.status(400).json({ message: 'You cannot delete your own admin account' });
     }
 
-    const user = await User.findById(req.params.id);
+    const user = await User.findById(targetId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
     // 1. Delete user's pets
-    const pets = await Pet.find({ owner: req.params.id });
+    const pets = await Pet.find({ owner: targetId });
     const petIds = pets.map(p => p._id || p.id);
     
     if (petIds.length > 0) {
@@ -129,17 +122,14 @@ router.delete('/users/:id', auth, admin, async (req, res) => {
         await Vaccination.deleteMany({ petId });
       }
       // Delete user's pets
-      await Pet.deleteMany({ owner: req.params.id });
+      await Pet.deleteMany({ owner: targetId });
     }
 
-    // 2. Delete adoption listings submitted by user
-    await AdoptionListing.deleteMany({ submittedBy: req.params.id });
-
     // 3. Delete lost/found reports submitted by user
-    await LostFoundReport.deleteMany({ userId: req.params.id });
+    await LostFoundReport.deleteMany({ userId: targetId });
 
     // 4. Delete user account
-    await User.findByIdAndDelete(req.params.id);
+    await User.findByIdAndDelete(targetId);
 
     res.json({ message: 'User and all associated data deleted successfully' });
   } catch (err) {

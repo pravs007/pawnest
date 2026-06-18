@@ -55,26 +55,6 @@ const lostFoundSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
-const adoptionSchema = new mongoose.Schema({
-  petName: { type: String, required: true },
-  species: { type: String, required: true },
-  breed: { type: String, required: true },
-  age: { type: String, required: true },
-  description: { type: String, required: true },
-  photo: { type: String, default: '' },
-  status: { type: String, enum: ['available', 'adopted'], default: 'available' },
-  submittedBy: { type: String, required: true }, // userId
-  requests: [{
-    userId: String,
-    name: String,
-    email: String,
-    note: String,
-    status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
-    createdAt: { type: Date, default: Date.now }
-  }],
-  createdAt: { type: Date, default: Date.now },
-});
-
 const rescueSchema = new mongoose.Schema({
   reporterName: { type: String, required: true },
   reporterPhone: { type: String, required: true },
@@ -88,14 +68,13 @@ const rescueSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
-let MongooseUser, MongoosePet, MongooseVaccination, MongooseLostFoundReport, MongooseAdoptionListing, MongooseRescueRequest;
+let MongooseUser, MongoosePet, MongooseVaccination, MongooseLostFoundReport, MongooseRescueRequest;
 
 if (!useLocal) {
   MongooseUser = mongoose.model('User', userSchema);
   MongoosePet = mongoose.model('Pet', petSchema);
   MongooseVaccination = mongoose.model('Vaccination', vaccinationSchema);
   MongooseLostFoundReport = mongoose.model('LostFoundReport', lostFoundSchema);
-  MongooseAdoptionListing = mongoose.model('AdoptionListing', adoptionSchema);
   MongooseRescueRequest = mongoose.model('RescueRequest', rescueSchema);
 }
 
@@ -107,7 +86,6 @@ export const User = useLocal ? getLocalModel('User') : MongooseUser;
 export const Pet = useLocal ? getLocalModel('Pet') : MongoosePet;
 export const Vaccination = useLocal ? getLocalModel('Vaccination') : MongooseVaccination;
 export const LostFoundReport = useLocal ? getLocalModel('LostFoundReport') : MongooseLostFoundReport;
-export const AdoptionListing = useLocal ? getLocalModel('AdoptionListing') : MongooseAdoptionListing;
 export const RescueRequest = useLocal ? getLocalModel('RescueRequest') : MongooseRescueRequest;
 
 export const connectDB = async () => {

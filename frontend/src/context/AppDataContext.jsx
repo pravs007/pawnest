@@ -12,7 +12,6 @@ export const AppDataProvider = ({ children }) => {
   const [pets, setPets] = useState([]);
   const [vaccinations, setVaccinations] = useState([]);
   const [reports, setReports] = useState([]);
-  const [adoptions, setAdoptions] = useState([]);
   const [rescues, setRescues] = useState([]);
   
   // Admin stats and lists
@@ -25,10 +24,10 @@ export const AppDataProvider = ({ children }) => {
 
   // Common fetch utility
   const fetchWithAuth = async (url, options = {}) => {
-    const headers = {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    };
+    const headers = { ...options.headers };
+    if (!(options.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+    }
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
@@ -162,7 +161,7 @@ export const AppDataProvider = ({ children }) => {
     try {
       const newReport = await fetchWithAuth('/api/reports', {
         method: 'POST',
-        body: JSON.stringify(reportData)
+        body: reportData instanceof FormData ? reportData : JSON.stringify(reportData)
       });
       setReports(prev => [newReport, ...prev]);
       return newReport;
@@ -197,86 +196,6 @@ export const AppDataProvider = ({ children }) => {
   };
 
   // ----------------------------------------------------
-  // ADOPTION METHODS (PUBLIC INDEX)
-  // ----------------------------------------------------
-  const fetchAdoptions = async () => {
-    try {
-      const data = await fetchWithAuth('/api/adoptions');
-      setAdoptions(data);
-    } catch (err) {
-      console.error('Fetch adoptions failed:', err);
-    }
-  };
-
-  const addAdoptionListing = async (listingData) => {
-    try {
-      const newListing = await fetchWithAuth('/api/adoptions', {
-        method: 'POST',
-        body: JSON.stringify(listingData)
-      });
-      setAdoptions(prev => [newListing, ...prev]);
-      return newListing;
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    }
-  };
-
-  const updateAdoptionListing = async (id, listingData) => {
-    try {
-      const updated = await fetchWithAuth(`/api/adoptions/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(listingData)
-      });
-      setAdoptions(prev => prev.map(a => a._id === id ? updated : a));
-      return updated;
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    }
-  };
-
-  const deleteAdoptionListing = async (id) => {
-    try {
-      await fetchWithAuth(`/api/adoptions/${id}`, { method: 'DELETE' });
-      setAdoptions(prev => prev.filter(a => a._id !== id));
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    }
-  };
-
-  const submitAdoptionRequest = async (listingId, requestNote) => {
-    try {
-      const updated = await fetchWithAuth(`/api/adoptions/${listingId}/request`, {
-        method: 'POST',
-        body: JSON.stringify({ note: requestNote })
-      });
-      setAdoptions(prev => prev.map(a => a._id === listingId ? updated : a));
-      return updated;
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    }
-  };
-
-  const handleAdoptionRequestReview = async (listingId, requestId, status) => {
-    try {
-      const updated = await fetchWithAuth(`/api/adoptions/${listingId}/request/${requestId}`, {
-        method: 'PUT',
-        body: JSON.stringify({ status })
-      });
-      setAdoptions(prev => prev.map(a => a._id === listingId ? updated : a));
-      // Refresh admin statistics if on admin page
-      if (user && user.role === 'admin') fetchAdminStats();
-      return updated;
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    }
-  };
-
-  // ----------------------------------------------------
   // RESCUE METHODS (COMMUNITY INDEX)
   // ----------------------------------------------------
   const fetchRescues = async () => {
@@ -292,7 +211,7 @@ export const AppDataProvider = ({ children }) => {
     try {
       const newRescue = await fetchWithAuth('/api/rescues', {
         method: 'POST',
-        body: JSON.stringify(rescueData)
+        body: rescueData instanceof FormData ? rescueData : JSON.stringify(rescueData)
       });
       setRescues(prev => [newRescue, ...prev]);
       return newRescue;
@@ -385,7 +304,6 @@ export const AppDataProvider = ({ children }) => {
     }
     // Load public datasets regardless
     fetchReports();
-    fetchAdoptions();
     fetchRescues();
   }, [token, user]);
 
@@ -393,7 +311,6 @@ export const AppDataProvider = ({ children }) => {
     pets,
     vaccinations,
     reports,
-    adoptions,
     rescues,
     adminStats,
     adminUsers,
@@ -412,12 +329,6 @@ export const AppDataProvider = ({ children }) => {
     addReport,
     updateReport,
     deleteReport,
-    fetchAdoptions,
-    addAdoptionListing,
-    updateAdoptionListing,
-    deleteAdoptionListing,
-    submitAdoptionRequest,
-    handleAdoptionRequestReview,
     fetchRescues,
     submitRescueRequest,
     updateRescueStatus,

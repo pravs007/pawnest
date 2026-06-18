@@ -4,7 +4,6 @@ import {
   Sparkles, 
   CalendarDays, 
   MapPin, 
-  HeartHandshake, 
   AlertTriangle, 
   ShieldCheck, 
   ArrowRight,
@@ -21,7 +20,6 @@ const Landing = () => {
         </div>
         <div className="flex items-center gap-4">
           <Link to="/lost-found" className="text-sm font-semibold text-brand-dark/80 hover:text-brand-orange transition-colors hidden sm:block">Lost & Found</Link>
-          <Link to="/adoption" className="text-sm font-semibold text-brand-dark/80 hover:text-brand-orange transition-colors hidden sm:block">Adoptions</Link>
           <Link to="/rescue" className="text-sm font-semibold text-brand-dark/80 hover:text-brand-orange transition-colors hidden sm:block">Rescue Board</Link>
           <Link to="/login" className="rounded-xl border border-brand-cream bg-white px-4 py-2 text-sm font-bold text-brand-dark/80 hover:bg-brand-cream/40 transition-all duration-200">
             Sign In
@@ -73,11 +71,6 @@ const Landing = () => {
                 alt="A happy golden retriever"
                 className="rounded-2xl max-h-[350px] w-full object-cover"
               />
-              <div className="absolute bottom-8 left-8 right-8 rounded-2xl bg-white/90 backdrop-blur-md p-4 text-left border border-brand-cream shadow-lg hidden sm:block">
-                <p className="text-sm font-semibold text-brand-orange">Featured Adoption</p>
-                <h4 className="text-lg font-bold text-brand-dark">Buddy the Retriever</h4>
-                <p className="text-xs text-brand-dark/70 mt-1">1 year old • Vaccinated • Friendly & Playful. Currently seeking a warm home.</p>
-              </div>
             </div>
           </div>
         </section>
@@ -128,17 +121,6 @@ const Landing = () => {
                 </p>
               </div>
 
-              {/* Feature 4 */}
-              <div className="rounded-2xl border border-brand-cream/60 p-6 hover-card bg-brand-light/35">
-                <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-brand-green/10 text-brand-green mb-4">
-                  <HeartHandshake className="h-6 w-6" />
-                </div>
-                <h3 className="text-xl font-bold text-brand-dark">Adoption Network</h3>
-                <p className="mt-2 text-sm text-brand-dark/70">
-                  Find a new furry family member or host a rescue pet for adoption. Submit applications and track reviewer status live.
-                </p>
-              </div>
-
               {/* Feature 5 */}
               <div className="rounded-2xl border border-brand-cream/60 p-6 hover-card bg-brand-light/35">
                 <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-brand-orange/10 text-brand-orange mb-4">
@@ -159,57 +141,6 @@ const Landing = () => {
                 <p className="mt-2 text-sm text-brand-dark/70">
                   Manage users, toggle verification badges, validate listings, assign rescue squads, and evaluate platform statistics.
                 </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Adoption Showcase Section */}
-        <section className="px-6 py-20 lg:px-24 bg-brand-light/45">
-          <div className="mx-auto max-w-6xl">
-            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between mb-12">
-              <div>
-                <h2 className="text-3xl font-extrabold text-brand-dark">Find Your Next Best Friend</h2>
-                <p className="text-brand-dark/70 mt-2">Just a few of the sweet pets looking for a loving home today.</p>
-              </div>
-              <Link to="/adoption" className="text-sm font-bold text-brand-orange inline-flex items-center gap-1 mt-4 sm:mt-0 hover:underline">
-                Browse Adoption Center
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </div>
-
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {/* Pet 1 */}
-              <div className="rounded-2xl border border-brand-cream/40 bg-white overflow-hidden shadow-sm hover-card">
-                <img src="https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=500&auto=format&fit=crop&q=60" alt="Luna" className="h-48 w-full object-cover" />
-                <div className="p-5">
-                  <span className="inline-flex items-center rounded-full bg-brand-green/10 px-2.5 py-0.5 text-xs font-bold text-brand-green mb-2">Cat</span>
-                  <h3 className="text-lg font-bold text-brand-dark">Luna</h3>
-                  <p className="text-xs text-brand-dark/60 mt-1">Breed: Siamese • Age: 2 years</p>
-                  <p className="text-sm text-brand-dark/70 mt-3 line-clamp-2">Luna is a gentle soul who loves sunny spots and quiet cuddles. She gets along perfectly with children.</p>
-                </div>
-              </div>
-
-              {/* Pet 2 */}
-              <div className="rounded-2xl border border-brand-cream/40 bg-white overflow-hidden shadow-sm hover-card">
-                <img src="https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=500&auto=format&fit=crop&q=60" alt="Rocky" className="h-48 w-full object-cover" />
-                <div className="p-5">
-                  <span className="inline-flex items-center rounded-full bg-brand-orange/10 px-2.5 py-0.5 text-xs font-bold text-brand-orange mb-2">Dog</span>
-                  <h3 className="text-lg font-bold text-brand-dark">Rocky</h3>
-                  <p className="text-xs text-brand-dark/60 mt-1">Breed: beagle • Age: 9 months</p>
-                  <p className="text-sm text-brand-dark/70 mt-3 line-clamp-2">A tiny bundle of boundless energy! Rocky loves fetch, long walks, and is very receptive to command learning.</p>
-                </div>
-              </div>
-
-              {/* Pet 3 */}
-              <div className="rounded-2xl border border-brand-cream/40 bg-white overflow-hidden shadow-sm hover-card">
-                <img src="https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=500&auto=format&fit=crop&q=60" alt="Oliver" className="h-48 w-full object-cover" />
-                <div className="p-5">
-                  <span className="inline-flex items-center rounded-full bg-brand-orange/10 px-2.5 py-0.5 text-xs font-bold text-brand-orange mb-2">Dog</span>
-                  <h3 className="text-lg font-bold text-brand-dark">Oliver</h3>
-                  <p className="text-xs text-brand-dark/60 mt-1">Breed: French Bulldog • Age: 3 years</p>
-                  <p className="text-sm text-brand-dark/70 mt-3 line-clamp-2">Calm, smart, and fully house-trained. Oliver likes short walks, treats, and sleeping on cozy couches.</p>
-                </div>
               </div>
             </div>
           </div>
@@ -261,7 +192,6 @@ const Landing = () => {
           <p className="text-xs text-white/50">&copy; 2026 PawNest Inc. AI Pet Care & Community Rescue operations.</p>
           <div className="flex gap-4">
             <Link to="/lost-found" className="text-xs text-white/70 hover:text-brand-orange transition-colors">Lost & Found</Link>
-            <Link to="/adoption" className="text-xs text-white/70 hover:text-brand-orange transition-colors">Adoptions</Link>
             <Link to="/rescue" className="text-xs text-white/70 hover:text-brand-orange transition-colors">Rescue</Link>
           </div>
         </div>

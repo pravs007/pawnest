@@ -4,10 +4,10 @@
     "name": "Nukabhattina Pravallika",
     "email": "pravallikaruth007@gmail.com",
     "password": "$2a$10$VpCSd3bYWcSI8l.eHLmDyeD045HC0aWupmmqKGIQ.FOs8lntEGaFu",
-    "role": "admin",
+    "role": "user",
     "avatar": "https://api.dicebear.com/7.x/adventurer/svg?seed=ab816",
     "createdAt": "2026-06-17T02:12:37.507Z",
-    "updatedAt": "2026-06-17T02:12:37.508Z"
+    "updatedAt": "2026-06-17T07:23:37.704Z"
   },
   {
     "_id": "icsp5ef77mqhg1upl",
@@ -18,5 +18,115 @@
     "avatar": "https://api.dicebear.com/7.x/adventurer/svg?seed=lfqi72",
     "createdAt": "2026-06-17T02:20:36.153Z",
     "updatedAt": "2026-06-17T02:20:36.153Z"
+  },
+  {
+    "_id": "in9woenc1mqhh9lqz",
+    "name": "Pravallika N",
+    "email": "uhdwuh89w@gmaoil.com",
+    "password": "$2a$10$OidpuhNUERx2CiNiZVyf1.3ARIP4pAcdUBJDSGDVsIqxjnPEyUyTu",
+    "role": "user",
+    "avatar": "https://api.dicebear.com/7.x/adventurer/svg?seed=1zvnbr",
+    "createdAt": "2026-06-17T02:54:37.403Z",
+    "updatedAt": "2026-06-17T07:23:28.631Z"
+  },
+  {
+    "_id": "dde26lc3xmqhkd9jc",
+    "name": "ggu8yijopkp[o",
+    "email": "23501a4444@pvpsit.ac.in",
+    "password": "$2a$10$ujZKOunH8ww1OwSR07WhKe/xVQXZLHhMmgDoYbpIHHgUM.yT5KlnS",
+    "role": "user",
+    "avatar": "https://api.dicebear.com/7.x/adventurer/svg?seed=1z80d",
+    "createdAt": "2026-06-17T04:21:27.049Z",
+    "updatedAt": "2026-06-17T04:21:27.049Z"
+  },
+  {
+    "_id": "itc7voj3cmqhq3pcc",
+    "name": "Test User",
+    "email": "tester_unique_123@example.com",
+    "password": "$2a$10$nJ.NmgZJz2LEqV8Mg1YIT.OEEIdg6VGroSn7iMg6DleJTVTljIJtG",
+    "role": "admin",
+    "avatar": "https://api.dicebear.com/7.x/adventurer/svg?seed=06zfvm",
+    "createdAt": "2026-06-17T07:01:58.668Z",
+    "updatedAt": "2026-06-17T07:01:58.668Z"
+  },
+  {
+    "_id": "30dammr1dmqhqqusk",
+    "name": "chinnu",
+    "email": "23501a4408@pvpsit.ac.in",
+    "password": "$2a$10$fGXuxwRvrSnG1Rf08yy8b.SSm1YzQmJzis75ih4XC/A.XEUtzBkhe",
+    "role": "admin",
+    "avatar": "https://api.dicebear.com/7.x/adventurer/svg?seed=ttgkg",
+    "createdAt": "2026-06-17T07:19:58.820Z",
+    "updatedAt": "2026-06-17T07:23:43.274Z"
+  },
+  {
+    "_id": "qnsi9cwbdmqi90wyn",
+    "name": "Veda",
+    "email": "23501a4413@pvpsit.ac.in",
+    "password": "$2a$10$4KPAYULt3VCX55eOCH8D2uAG3QK6H5Prhx5t4doEoNPnkgsim8V0e",
+    "role": "user",
+    "avatar": "https://api.dicebear.com/7.x/adventurer/svg?seed=5l1l2v",
+    "createdAt": "2026-06-17T15:51:41.280Z",
+    "updatedAt": "2026-06-17T15:51:41.280Z"
+  },
+  {
+    "_id": "qoc8v346ymqiv5szj",
+    "name": "Veda",
+    "email": "vedanagumothu21@gmail.com",
+    "password": "$2a$10$uclnOjD.5cyYu7YP0ZdFAu72NAYuwdHOGdfg5NFqmXmank/4V1gPO",
+    "role": "user",
+    "avatar": "https://api.dicebear.com/7.x/adventurer/svg?seed=h1dvwe",
+    "createdAt": "2026-06-18T02:11:20.959Z",
+    "updatedAt": "2026-06-18T02:11:20.959Z"
+  },
+  {
+    "_id": "e169knvtfmqiw3lzj",
+    "name": "Admin",
+    "email": "admin@pawnest.com",
+    "password": "$2a$10$.1j4MIeoyVbGVWeLjI0FkO0bCsUARzCReLZyLSE/WG/vfTIWYbdci",
+    "role": "user",
+    "avatar": "https:&#x2F;&#x2F;api.dicebear.com&#x2F;7.x&#x2F;adventurer&#x2F;svg?seed=noesa",
+    "createdAt": "2026-06-18T02:37:38.191Z",
+    "updatedAt": "2026-06-18T02:37:38.191Z"
+  },
+  {
+    "_id": "289tpz2h3mqiw83wt",
+    "name": "Dispatcher",
+    "email": "dispatcher123@pawnest.com",
+    "password": "$2a$10$fi/fWAafuH3CKiuE5MUVA.Ju7DVX8QAU3sAZheAtwr/L1NvZrbZAW",
+    "role": "user",
+    "avatar": "https:&#x2F;&#x2F;api.dicebear.com&#x2F;7.x&#x2F;adventurer&#x2F;svg?seed=oahvq",
+    "createdAt": "2026-06-18T02:41:08.045Z",
+    "updatedAt": "2026-06-18T02:41:08.045Z"
+  },
+  {
+    "_id": "1wyovrhzwmqiwcf85",
+    "name": "Dispatcher",
+    "email": "dispatcher@pawnest.com",
+    "password": "$2a$10$4XGngEUgVI2UeVyvGBuO5Oe7iI7VDYndSrveC.SaIKGy6H7csO2y6",
+    "role": "user",
+    "avatar": "https:&#x2F;&#x2F;api.dicebear.com&#x2F;7.x&#x2F;adventurer&#x2F;svg?seed=vz7ehf",
+    "createdAt": "2026-06-18T02:44:29.336Z",
+    "updatedAt": "2026-06-18T02:44:29.336Z"
+  },
+  {
+    "_id": "gfq68j0xtmqiwf18x",
+    "name": "Admin Example",
+    "email": "admin@example.com",
+    "password": "$2a$10$IVcGFcJGC7I.G7UMdW0GjOSByHI2w1gL49XBEdMt6YOovqZJIvgPq",
+    "role": "user",
+    "avatar": "https:&#x2F;&#x2F;api.dicebear.com&#x2F;7.x&#x2F;adventurer&#x2F;svg?seed=jfpotb",
+    "createdAt": "2026-06-18T02:46:31.185Z",
+    "updatedAt": "2026-06-18T02:46:31.185Z"
+  },
+  {
+    "_id": "ku3k0xul4mqiwyt86",
+    "name": "Test User",
+    "email": "testuser@example.com",
+    "password": "$2a$10$KvDyK20Vf5Xw35dtzNJP1OzUFPLLpFwcM7.fpCwP9.HjCGYi/6WEa",
+    "role": "user",
+    "avatar": "https:&#x2F;&#x2F;api.dicebear.com&#x2F;7.x&#x2F;adventurer&#x2F;svg?seed=ur45t",
+    "createdAt": "2026-06-18T03:01:53.910Z",
+    "updatedAt": "2026-06-18T03:01:53.910Z"
   }
 ]

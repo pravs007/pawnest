@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { User } from '../db/db.js';
 import { auth } from '../middleware/auth.js';
 import dotenv from 'dotenv';
+import { validateName, validateEmail, validatePassword, sanitizeInput } from '../utils/validation.js';
 
 dotenv.config();
 
@@ -14,15 +15,33 @@ const JWT_SECRET = process.env.JWT_SECRET || 'pawnest_super_secret_jwt_key_98765
 // @desc    Register a user
 // @access  Public
 router.post('/register', async (req, res) => {
-  const { name, email, password, avatar } = req.body;
+  let { name, email, password, avatar } = req.body;
 
   try {
     if (!name || !email || !password) {
       return res.status(400).json({ message: 'Please enter all required fields' });
     }
 
+    name = (name || '').trim();
+    email = (email || '').trim();
+    password = (password || '');
+
+    const nameErr = validateName(name, 'Name');
+    const emailErr = validateEmail(email);
+    const passwordErr = validatePassword(password);
+
+    if (nameErr || emailErr || passwordErr) {
+      return res.status(400).json({
+        message: nameErr || emailErr || passwordErr,
+        errors: { name: nameErr, email: emailErr, password: passwordErr }
+      });
+    }
+
+    const sanitizedName = sanitizeInput(name);
+    const sanitizedEmail = sanitizeInput(email);
+
     // Check if user exists
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: sanitizedEmail });
     if (existingUser) {
       return res.status(400).json({ message: 'User already exists with this email' });
     }
@@ -37,11 +56,11 @@ router.post('/register', async (req, res) => {
 
     // Create user
     const newUser = await User.create({
-      name,
-      email,
+      name: sanitizedName,
+      email: sanitizedEmail,
       password: hashedPassword,
       role,
-      avatar: avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(name)}`
+      avatar: avatar ? sanitizeInput(avatar) : `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(sanitizedName)}`
     });
 
     // Sign JWT
@@ -67,15 +86,30 @@ router.post('/register', async (req, res) => {
 // @desc    Authenticate user & get token
 // @access  Public
 router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
+  let { email, password } = req.body;
 
   try {
     if (!email || !password) {
       return res.status(400).json({ message: 'Please enter email and password' });
     }
 
+    email = (email || '').trim();
+    password = (password || '');
+
+    const emailErr = validateEmail(email);
+    const passwordErr = validatePassword(password);
+
+    if (emailErr || passwordErr) {
+      return res.status(400).json({
+        message: emailErr || passwordErr,
+        errors: { email: emailErr, password: passwordErr }
+      });
+    }
+
+    const sanitizedEmail = sanitizeInput(email);
+
     // Check if user exists
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: sanitizedEmail });
     if (!user) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
@@ -130,20 +164,42 @@ router.get('/me', auth, async (req, res) => {
 // @desc    Update user profile
 // @access  Private
 router.put('/profile', auth, async (req, res) => {
-  const { name, email, avatar, password } = req.body;
+  let { name, email, avatar, password } = req.body;
   const updates = {};
 
-  if (name) updates.name = name;
-  if (email) {
+  if (name !== undefined) {
+    const trimmed = (name || '').trim();
+    const nameErr = validateName(trimmed, 'Name');
+    if (nameErr) {
+      return res.status(400).json({ message: nameErr });
+    }
+    updates.name = sanitizeInput(trimmed);
+  }
+
+  if (email !== undefined) {
+    const trimmed = (email || '').trim();
+    const emailErr = validateEmail(trimmed);
+    if (emailErr) {
+      return res.status(400).json({ message: emailErr });
+    }
+    const sanitizedEmail = sanitizeInput(trimmed);
     // Check if email taken by someone else
-    const emailUser = await User.findOne({ email });
+    const emailUser = await User.findOne({ email: sanitizedEmail });
     if (emailUser && emailUser._id.toString() !== req.user.id) {
       return res.status(400).json({ message: 'Email is already taken by another account' });
     }
-    updates.email = email;
+    updates.email = sanitizedEmail;
   }
-  if (avatar) updates.avatar = avatar;
-  if (password) {
+
+  if (avatar !== undefined) {
+    updates.avatar = sanitizeInput(avatar);
+  }
+
+  if (password !== undefined && password !== '') {
+    const passwordErr = validatePassword(password);
+    if (passwordErr) {
+      return res.status(400).json({ message: passwordErr });
+    }
     const salt = await bcrypt.genSalt(10);
     updates.password = await bcrypt.hash(password, salt);
   }

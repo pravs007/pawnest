@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppData } from '../context/AppDataContext';
 import { 
   Plus, 
@@ -12,6 +12,7 @@ import {
   Compass,
   LifeBuoy
 } from 'lucide-react';
+import { validateName, validatePhone, validateTextarea, validateFileUpload, sanitizeInput } from '../utils/validation';
 
 const Rescue = () => {
   const { rescues, submitRescueRequest } = useAppData();
@@ -23,30 +24,182 @@ const Rescue = () => {
 
   // Forms states
   const [formError, setFormError] = useState('');
+  
+  // File upload states
+  const [imageFile, setImageFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState('');
+
   const [rescueForm, setRescueForm] = useState({
     reporterName: '',
     reporterPhone: '',
     species: 'Dog',
     description: '',
     location: '',
-    severity: 'medium',
+    severity: 'medium'
+  });
+
+  const [errors, setErrors] = useState({
+    reporterName: '',
+    reporterPhone: '',
+    species: '',
+    location: '',
+    description: '',
     photo: ''
   });
 
+  const handleFieldChange = (field, val) => {
+    setRescueForm(prev => ({ ...prev, [field]: val }));
+    let err = '';
+    if (field === 'reporterName') {
+      err = validateName(val, 'Reporter Name');
+    } else if (field === 'reporterPhone') {
+      err = validatePhone(val, 'Reporter Phone');
+    } else if (field === 'species') {
+      err = validateName(val, 'Animal / Species');
+    } else if (field === 'location') {
+      const trimmed = val.trim();
+      if (!val || trimmed === '') {
+        err = 'Location is required';
+      } else if (trimmed.length < 2) {
+        err = 'Location must be at least 2 characters';
+      } else if (trimmed.length > 100) {
+        err = 'Location must be at most 100 characters';
+      }
+    } else if (field === 'description') {
+      err = validateTextarea(val, 10, 1000, 'Description');
+    }
+    setErrors(prev => ({ ...prev, [field]: err }));
+  };
+
+  const handleFieldBlur = (field) => {
+    const val = rescueForm[field];
+    const trimmed = typeof val === 'string' ? val.trim() : val;
+    setRescueForm(prev => ({ ...prev, [field]: trimmed }));
+    
+    let err = '';
+    if (field === 'reporterName') {
+      err = validateName(trimmed, 'Reporter Name');
+    } else if (field === 'reporterPhone') {
+      err = validatePhone(trimmed, 'Reporter Phone');
+    } else if (field === 'species') {
+      err = validateName(trimmed, 'Animal / Species');
+    } else if (field === 'location') {
+      if (!trimmed || trimmed === '') {
+        err = 'Location is required';
+      } else if (trimmed.length < 2) {
+        err = 'Location must be at least 2 characters';
+      } else if (trimmed.length > 100) {
+        err = 'Location must be at most 100 characters';
+      }
+    } else if (field === 'description') {
+      err = validateTextarea(trimmed, 10, 1000, 'Description');
+    }
+    setErrors(prev => ({ ...prev, [field]: err }));
+  };
+
+  // Cleanup preview URL
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const fileErr = validateFileUpload(file, 5);
+    if (fileErr) {
+      setErrors(prev => ({ ...prev, photo: fileErr }));
+      setFormError(fileErr);
+      return;
+    }
+
+    setErrors(prev => ({ ...prev, photo: '' }));
+    setFormError('');
+    setImageFile(file);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setPreviewUrl(URL.createObjectURL(file));
+  };
+
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setErrors(prev => ({ ...prev, photo: '' }));
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl('');
+    }
+  };
+
+  const resetForm = () => {
+    setRescueForm({
+      reporterName: '',
+      reporterPhone: '',
+      species: 'Dog',
+      description: '',
+      location: '',
+      severity: 'medium'
+    });
+    setImageFile(null);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl('');
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const { reporterName, reporterPhone, species, description, location } = rescueForm;
+    const { reporterName, reporterPhone, species, description, location, severity } = rescueForm;
 
-    if (!reporterName || !reporterPhone || !species || !description || !location) {
-      setFormError('Please enter all required fields.');
+    const nameErr = validateName(reporterName, 'Reporter Name');
+    const phoneErr = validatePhone(reporterPhone, 'Reporter Phone');
+    const speciesErr = validateName(species, 'Animal / Species');
+    const descErr = validateTextarea(description, 10, 1000, 'Description');
+    
+    let locErr = '';
+    const trimmedLoc = (location || '').trim();
+    if (!location || trimmedLoc === '') {
+      locErr = 'Location is required';
+    } else if (trimmedLoc.length < 2) {
+      locErr = 'Location must be at least 2 characters';
+    } else if (trimmedLoc.length > 100) {
+      locErr = 'Location must be at most 100 characters';
+    }
+
+    if (nameErr || phoneErr || speciesErr || descErr || locErr || errors.photo) {
+      setErrors({
+        reporterName: nameErr,
+        reporterPhone: phoneErr,
+        species: speciesErr,
+        description: descErr,
+        location: locErr,
+        photo: errors.photo
+      });
+      setFormError('Please resolve all validation errors before submitting.');
       return;
     }
 
     try {
-      await submitRescueRequest(rescueForm);
+      const formData = new FormData();
+      formData.append('reporterName', sanitizeInput(reporterName));
+      formData.append('reporterPhone', sanitizeInput(reporterPhone));
+      formData.append('species', sanitizeInput(species));
+      formData.append('description', sanitizeInput(description));
+      formData.append('location', sanitizeInput(location));
+      formData.append('severity', severity);
+      if (imageFile) {
+        formData.append('photo', imageFile);
+      }
+
+      await submitRescueRequest(formData);
       setShowReportModal(false);
       setFormError('');
-      alert('Rescue request submitted successfully! Our dispatch team is review and dispatching helpers.');
+      resetForm();
+      alert('Rescue request submitted successfully! Our dispatch team is reviewing and dispatching helpers.');
     } catch (err) {
       setFormError(err.message || 'Failed to submit report');
     }
@@ -118,13 +271,13 @@ const Rescue = () => {
           </p>
           <button
             onClick={() => {
-              setRescueForm({
+              resetForm();
+              setErrors({
                 reporterName: '',
                 reporterPhone: '',
-                species: 'Dog',
-                description: '',
+                species: '',
                 location: '',
-                severity: 'medium',
+                description: '',
                 photo: ''
               });
               setFormError('');
@@ -257,10 +410,18 @@ const Rescue = () => {
                     type="text"
                     required
                     value={rescueForm.reporterName}
-                    onChange={(e) => setRescueForm({ ...rescueForm, reporterName: e.target.value })}
-                    className="w-full px-3 py-2 border border-brand-cream rounded-xl text-sm focus:outline-none"
+                    onChange={(e) => handleFieldChange('reporterName', e.target.value)}
+                    onBlur={() => handleFieldBlur('reporterName')}
+                    className={`w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 ${
+                      errors.reporterName 
+                        ? 'border-red-500 focus:ring-red-200 focus:border-red-500' 
+                        : 'border-brand-cream focus:ring-brand-orange'
+                    }`}
                     placeholder="Jane Smith"
                   />
+                  {errors.reporterName && (
+                    <p className="mt-1 text-[10px] text-red-500 font-medium">{errors.reporterName}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-brand-dark/80 mb-1">Your Phone *</label>
@@ -268,10 +429,18 @@ const Rescue = () => {
                     type="tel"
                     required
                     value={rescueForm.reporterPhone}
-                    onChange={(e) => setRescueForm({ ...rescueForm, reporterPhone: e.target.value })}
-                    className="w-full px-3 py-2 border border-brand-cream rounded-xl text-sm focus:outline-none"
-                    placeholder="+1 (555) 018-3824"
+                    onChange={(e) => handleFieldChange('reporterPhone', e.target.value)}
+                    onBlur={() => handleFieldBlur('reporterPhone')}
+                    className={`w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 ${
+                      errors.reporterPhone 
+                        ? 'border-red-500 focus:ring-red-200 focus:border-red-500' 
+                        : 'border-brand-cream focus:ring-brand-orange'
+                    }`}
+                    placeholder="10-digit number"
                   />
+                  {errors.reporterPhone && (
+                    <p className="mt-1 text-[10px] text-red-500 font-medium">{errors.reporterPhone}</p>
+                  )}
                 </div>
               </div>
 
@@ -283,16 +452,24 @@ const Rescue = () => {
                     type="text"
                     required
                     value={rescueForm.species}
-                    onChange={(e) => setRescueForm({ ...rescueForm, species: e.target.value })}
-                    className="w-full px-3 py-2 border border-brand-cream rounded-xl text-sm focus:outline-none"
-                    placeholder="e.g. Injured Dog, Trapped Kitten"
+                    onChange={(e) => handleFieldChange('species', e.target.value)}
+                    onBlur={() => handleFieldBlur('species')}
+                    className={`w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 ${
+                      errors.species 
+                        ? 'border-red-500 focus:ring-red-200 focus:border-red-500' 
+                        : 'border-brand-cream focus:ring-brand-orange'
+                    }`}
+                    placeholder="e.g. Injured Dog"
                   />
+                  {errors.species && (
+                    <p className="mt-1 text-[10px] text-red-500 font-medium">{errors.species}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-brand-dark/80 mb-1 font-sans">Severity Level *</label>
                   <select
                     value={rescueForm.severity}
-                    onChange={(e) => setRescueForm({ ...rescueForm, severity: e.target.value })}
+                    onChange={(e) => handleFieldChange('severity', e.target.value)}
                     className="w-full px-3 py-2 border border-brand-cream rounded-xl text-sm focus:outline-none font-medium text-red-650"
                   >
                     <option value="low">Low (Stray in fence/nuisance)</option>
@@ -309,21 +486,51 @@ const Rescue = () => {
                   type="text"
                   required
                   value={rescueForm.location}
-                  onChange={(e) => setRescueForm({ ...rescueForm, location: e.target.value })}
-                  className="w-full px-3 py-2 border border-brand-cream rounded-xl text-sm focus:outline-none"
+                  onChange={(e) => handleFieldChange('location', e.target.value)}
+                  onBlur={() => handleFieldBlur('location')}
+                  className={`w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 ${
+                    errors.location 
+                      ? 'border-red-500 focus:ring-red-200 focus:border-red-500' 
+                      : 'border-brand-cream focus:ring-brand-orange'
+                  }`}
                   placeholder="Street name, landmark details, city..."
                 />
+                {errors.location && (
+                  <p className="mt-1 text-[10px] text-red-500 font-medium">{errors.location}</p>
+                )}
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-brand-dark/80 mb-1 font-sans">Animal Photo URL (if possible)</label>
-                <input
-                  type="text"
-                  value={rescueForm.photo}
-                  onChange={(e) => setRescueForm({ ...rescueForm, photo: e.target.value })}
-                  className="w-full px-3 py-2 border border-brand-cream rounded-xl text-sm focus:outline-none"
-                  placeholder="Paste image URL of the animal"
-                />
+                <label className="block text-xs font-semibold text-brand-dark/80 mb-2 font-sans">Animal Photo *</label>
+                {previewUrl ? (
+                  <div className="relative rounded-2xl border border-brand-cream/60 overflow-hidden h-40 bg-brand-light/15 flex items-center justify-center">
+                    <img src={previewUrl} alt="Preview" className="h-full w-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={handleRemoveImage}
+                      className="absolute top-2 right-2 rounded-full bg-brand-dark/70 backdrop-blur-sm p-1.5 text-white hover:bg-brand-dark transition-colors"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="border-2 border-dashed border-brand-cream rounded-2xl p-6 text-center hover:bg-brand-light/10 transition-colors relative cursor-pointer group">
+                    <input
+                      type="file"
+                      accept=".jpg,.jpeg,.png,.webp"
+                      onChange={handleFileChange}
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                    />
+                    <div className="flex flex-col items-center justify-center">
+                      <span className="text-3xl mb-2 group-hover:scale-110 transition-transform">📷</span>
+                      <p className="text-xs font-bold text-brand-dark">Click or Drag & Drop to Upload</p>
+                      <p className="text-[10px] text-brand-dark/50 mt-1">Accepts JPG, JPEG, PNG, WEBP (Max 5 MB)</p>
+                    </div>
+                  </div>
+                )}
+                {errors.photo && (
+                  <p className="mt-1 text-[10px] text-red-500 font-medium">{errors.photo}</p>
+                )}
               </div>
 
               <div>
@@ -331,11 +538,19 @@ const Rescue = () => {
                 <textarea
                   required
                   value={rescueForm.description}
-                  onChange={(e) => setRescueForm({ ...rescueForm, description: e.target.value })}
+                  onChange={(e) => handleFieldChange('description', e.target.value)}
+                  onBlur={() => handleFieldBlur('description')}
                   rows="3"
-                  className="w-full px-3 py-2 border border-brand-cream rounded-xl text-sm focus:outline-none"
-                  placeholder="Explain details: e.g. dog has bleeding leg, trapped in open drain, cannot stand..."
+                  className={`w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 ${
+                    errors.description 
+                      ? 'border-red-500 focus:ring-red-200 focus:border-red-500' 
+                      : 'border-brand-cream focus:ring-brand-orange'
+                  }`}
+                  placeholder="Explain details: e.g. dog has bleeding leg... (min 10 chars)"
                 />
+                {errors.description && (
+                  <p className="mt-1 text-[10px] text-red-500 font-medium">{errors.description}</p>
+                )}
               </div>
 
               <div className="pt-3 border-t border-brand-cream/30 flex justify-end gap-3 font-bold text-xs">
@@ -348,7 +563,20 @@ const Rescue = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-red-600 text-white rounded-xl shadow-md hover:bg-red-700"
+                  disabled={
+                    !!errors.reporterName || 
+                    !!errors.reporterPhone || 
+                    !!errors.species || 
+                    !!errors.location || 
+                    !!errors.description || 
+                    !!errors.photo || 
+                    !rescueForm.reporterName || 
+                    !rescueForm.reporterPhone || 
+                    !rescueForm.species || 
+                    !rescueForm.location || 
+                    !rescueForm.description
+                  }
+                  className="px-5 py-2 bg-red-600 text-white rounded-xl shadow-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   File Dispatch Request
                 </button>

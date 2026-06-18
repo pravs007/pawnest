@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAppData } from '../context/AppDataContext';
 import { useAuth } from '../context/AuthContext';
+import { validateName, validateNumber, validateTextarea, validateFileUpload, sanitizeInput } from '../utils/validation';
 import { 
   Plus, 
   Trash2, 
@@ -33,8 +34,20 @@ const Dashboard = () => {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedPet, setSelectedPet] = useState(null);
 
+  // File upload state for pet photos
+  const [selectedFileName, setSelectedFileName] = useState('');
+
   // Form states
   const [petForm, setPetForm] = useState({
+    name: '',
+    breed: '',
+    age: '',
+    weight: '',
+    medicalNotes: '',
+    photo: ''
+  });
+
+  const [errors, setErrors] = useState({
     name: '',
     breed: '',
     age: '',
@@ -50,8 +63,51 @@ const Dashboard = () => {
   const userRescues = rescues.filter(r => r.reporterPhone === user?.phone || r.reporterName === user?.name).length;
   const userReports = reports.filter(r => r.userId === user?.id).length;
 
+  const handleFieldChange = (field, val) => {
+    setPetForm(prev => ({ ...prev, [field]: val }));
+    let err = '';
+    if (field === 'name') {
+      err = validateName(val, 'Pet Name');
+    } else if (field === 'breed') {
+      err = validateName(val, 'Breed / Species');
+    } else if (field === 'age') {
+      err = validateNumber(val, 0, 30, 'Pet Age');
+    } else if (field === 'weight') {
+      err = validateNumber(val, 0, 150, 'Weight');
+    } else if (field === 'medicalNotes') {
+      if (val.trim() !== '') {
+        err = validateTextarea(val, 0, 1000, 'Medical & Behavior Notes');
+      }
+    }
+    setErrors(prev => ({ ...prev, [field]: err }));
+  };
+
+  const handleFieldBlur = (field) => {
+    const val = petForm[field];
+    const trimmed = typeof val === 'string' ? val.trim() : val;
+    setPetForm(prev => ({ ...prev, [field]: trimmed }));
+    
+    let err = '';
+    if (field === 'name') {
+      err = validateName(trimmed, 'Pet Name');
+    } else if (field === 'breed') {
+      err = validateName(trimmed, 'Breed / Species');
+    } else if (field === 'age') {
+      err = validateNumber(trimmed, 0, 30, 'Pet Age');
+    } else if (field === 'weight') {
+      err = validateNumber(trimmed, 0, 150, 'Weight');
+    } else if (field === 'medicalNotes') {
+      if (trimmed !== '') {
+        err = validateTextarea(trimmed, 0, 1000, 'Medical & Behavior Notes');
+      }
+    }
+    setErrors(prev => ({ ...prev, [field]: err }));
+  };
+
   const openAddModal = () => {
     setPetForm({ name: '', breed: '', age: '', weight: '', medicalNotes: '', photo: '' });
+    setErrors({ name: '', breed: '', age: '', weight: '', medicalNotes: '', photo: '' });
+    setSelectedFileName('');
     setFormError('');
     setShowAddModal(true);
   };
@@ -67,8 +123,43 @@ const Dashboard = () => {
       medicalNotes: pet.medicalNotes || '',
       photo: pet.photo || ''
     });
+    setErrors({ name: '', breed: '', age: '', weight: '', medicalNotes: '', photo: '' });
+    setSelectedFileName(pet.photo ? 'Existing Photo' : '');
     setFormError('');
     setShowEditModal(true);
+  };
+
+  const handlePetFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate size and format using custom validation
+    const fileErr = validateFileUpload(file, 5);
+    if (fileErr) {
+      setErrors(prev => ({ ...prev, photo: fileErr }));
+      setFormError(fileErr);
+      return;
+    }
+
+    setErrors(prev => ({ ...prev, photo: '' }));
+    setFormError('');
+    setSelectedFileName(file.name);
+
+    // Convert file to Base64
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPetForm(prev => ({ ...prev, photo: reader.result }));
+    };
+    reader.onerror = () => {
+      setFormError('Failed to read image file');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemovePetPhoto = () => {
+    setPetForm(prev => ({ ...prev, photo: '' }));
+    setSelectedFileName('');
+    setErrors(prev => ({ ...prev, photo: '' }));
   };
 
   const openDetailModal = (pet) => {
@@ -78,18 +169,44 @@ const Dashboard = () => {
 
   const handlePetSubmit = async (e, type) => {
     e.preventDefault();
-    const { name, breed, age, weight } = petForm;
-    if (!name || !breed || !age || !weight) {
-      setFormError('Please fill in Name, Breed, Age, and Weight');
+    const { name, breed, age, weight, medicalNotes, photo } = petForm;
+    
+    const nameErr = validateName(name, 'Pet Name');
+    const breedErr = validateName(breed, 'Breed / Species');
+    const ageErr = validateNumber(age, 0, 30, 'Pet Age');
+    const weightErr = validateNumber(weight, 0, 150, 'Weight');
+    const notesErr = medicalNotes && medicalNotes.trim() !== '' 
+      ? validateTextarea(medicalNotes, 0, 1000, 'Medical & Behavior Notes') 
+      : '';
+
+    if (nameErr || breedErr || ageErr || weightErr || notesErr || errors.photo) {
+      setErrors({
+        name: nameErr,
+        breed: breedErr,
+        age: ageErr,
+        weight: weightErr,
+        medicalNotes: notesErr,
+        photo: errors.photo
+      });
+      setFormError('Please resolve all validation errors.');
       return;
     }
 
     try {
+      const sanitizedForm = {
+        name: sanitizeInput(name),
+        breed: sanitizeInput(breed),
+        age: sanitizeInput(age),
+        weight: sanitizeInput(weight),
+        medicalNotes: sanitizeInput(medicalNotes || ''),
+        photo
+      };
+
       if (type === 'add') {
-        await addPet(petForm);
+        await addPet(sanitizedForm);
         setShowAddModal(false);
       } else {
-        await updatePet(selectedPet._id || selectedPet.id, petForm);
+        await updatePet(selectedPet._id || selectedPet.id, sanitizedForm);
         setShowEditModal(false);
       }
     } catch (err) {
@@ -292,10 +409,18 @@ const Dashboard = () => {
                     type="text"
                     required
                     value={petForm.name}
-                    onChange={(e) => setPetForm({ ...petForm, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-brand-cream rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-brand-orange"
+                    onChange={(e) => handleFieldChange('name', e.target.value)}
+                    onBlur={() => handleFieldBlur('name')}
+                    className={`w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 ${
+                      errors.name 
+                        ? 'border-red-500 focus:ring-red-200 focus:border-red-500' 
+                        : 'border-brand-cream focus:ring-brand-orange'
+                    }`}
                     placeholder="e.g. Bella"
                   />
+                  {errors.name && (
+                    <p className="mt-1 text-[10px] text-red-500 font-medium">{errors.name}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-brand-dark/80 mb-1">Breed / Species *</label>
@@ -303,55 +428,114 @@ const Dashboard = () => {
                     type="text"
                     required
                     value={petForm.breed}
-                    onChange={(e) => setPetForm({ ...petForm, breed: e.target.value })}
-                    className="w-full px-3 py-2 border border-brand-cream rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-brand-orange"
+                    onChange={(e) => handleFieldChange('breed', e.target.value)}
+                    onBlur={() => handleFieldBlur('breed')}
+                    className={`w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 ${
+                      errors.breed 
+                        ? 'border-red-500 focus:ring-red-200 focus:border-red-500' 
+                        : 'border-brand-cream focus:ring-brand-orange'
+                    }`}
                     placeholder="e.g. Golden Retriever"
                   />
+                  {errors.breed && (
+                    <p className="mt-1 text-[10px] text-red-500 font-medium">{errors.breed}</p>
+                  )}
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-brand-dark/80 mb-1">Age *</label>
+                  <label className="block text-xs font-semibold text-brand-dark/80 mb-1">Age (years) *</label>
                   <input
                     type="text"
                     required
                     value={petForm.age}
-                    onChange={(e) => setPetForm({ ...petForm, age: e.target.value })}
-                    className="w-full px-3 py-2 border border-brand-cream rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-brand-orange"
-                    placeholder="e.g. 2 years, 3 months"
+                    onChange={(e) => handleFieldChange('age', e.target.value)}
+                    onBlur={() => handleFieldBlur('age')}
+                    className={`w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 ${
+                      errors.age 
+                        ? 'border-red-500 focus:ring-red-200 focus:border-red-500' 
+                        : 'border-brand-cream focus:ring-brand-orange'
+                    }`}
+                    placeholder="e.g. 2"
                   />
+                  {errors.age && (
+                    <p className="mt-1 text-[10px] text-red-500 font-medium">{errors.age}</p>
+                  )}
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-brand-dark/80 mb-1">Weight *</label>
+                  <label className="block text-xs font-semibold text-brand-dark/80 mb-1">Weight (kg) *</label>
                   <input
                     type="text"
                     required
                     value={petForm.weight}
-                    onChange={(e) => setPetForm({ ...petForm, weight: e.target.value })}
-                    className="w-full px-3 py-2 border border-brand-cream rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-brand-orange"
-                    placeholder="e.g. 12 kg"
+                    onChange={(e) => handleFieldChange('weight', e.target.value)}
+                    onBlur={() => handleFieldBlur('weight')}
+                    className={`w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 ${
+                      errors.weight 
+                        ? 'border-red-500 focus:ring-red-200 focus:border-red-500' 
+                        : 'border-brand-cream focus:ring-brand-orange'
+                    }`}
+                    placeholder="e.g. 12"
                   />
+                  {errors.weight && (
+                    <p className="mt-1 text-[10px] text-red-500 font-medium">{errors.weight}</p>
+                  )}
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-brand-dark/80 mb-1">Photo URL</label>
-                <input
-                  type="text"
-                  value={petForm.photo}
-                  onChange={(e) => setPetForm({ ...petForm, photo: e.target.value })}
-                  className="w-full px-3 py-2 border border-brand-cream rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-brand-orange"
-                  placeholder="Paste Unsplash image URL or leave empty"
-                />
+                <label className="block text-xs font-semibold text-brand-dark/80 mb-1">Pet Photo</label>
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center gap-3">
+                    <label className="cursor-pointer inline-flex items-center gap-1.5 rounded-xl bg-brand-orange px-4 py-2 text-xs font-bold text-white shadow-md hover:bg-brand-orange/90 transition-colors">
+                      <span>Upload Pet Photo</span>
+                      <input
+                        type="file"
+                        accept=".jpg,.jpeg,.png,.webp"
+                        onChange={handlePetFileChange}
+                        className="hidden"
+                      />
+                    </label>
+                    {selectedFileName && (
+                      <span className="text-xs text-brand-dark/60 truncate max-w-[200px]">
+                        Selected: {selectedFileName}
+                      </span>
+                    )}
+                  </div>
+                  {errors.photo && (
+                    <p className="text-[10px] text-red-500 font-medium">{errors.photo}</p>
+                  )}
+                  
+                  {petForm.photo && (
+                    <div className="relative rounded-2xl border border-brand-cream/60 overflow-hidden h-32 w-full bg-brand-light/15 flex items-center justify-center">
+                      <img src={petForm.photo} alt="Preview" className="h-full w-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={handleRemovePetPhoto}
+                        className="absolute top-2 right-2 rounded-full bg-brand-dark/70 backdrop-blur-sm p-1 text-white hover:bg-brand-dark transition-colors"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-brand-dark/80 mb-1">Medical & Behavior Notes</label>
                 <textarea
                   value={petForm.medicalNotes}
-                  onChange={(e) => setPetForm({ ...petForm, medicalNotes: e.target.value })}
+                  onChange={(e) => handleFieldChange('medicalNotes', e.target.value)}
+                  onBlur={() => handleFieldBlur('medicalNotes')}
                   rows="3"
-                  className="w-full px-3 py-2 border border-brand-cream rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-brand-orange"
+                  className={`w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 ${
+                    errors.medicalNotes 
+                      ? 'border-red-500 focus:ring-red-200 focus:border-red-500' 
+                      : 'border-brand-cream focus:ring-brand-orange'
+                  }`}
                   placeholder="Allergies, chronic conditions, vet logs, dietary alerts..."
                 />
+                {errors.medicalNotes && (
+                  <p className="mt-1 text-[10px] text-red-500 font-medium">{errors.medicalNotes}</p>
+                )}
               </div>
 
               <div className="pt-3 border-t border-brand-cream/30 flex justify-end gap-3">
@@ -364,7 +548,19 @@ const Dashboard = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-brand-orange text-xs font-bold text-white rounded-xl shadow-md hover:bg-brand-orange/90"
+                  disabled={
+                    !!errors.name || 
+                    !!errors.breed || 
+                    !!errors.age || 
+                    !!errors.weight || 
+                    !!errors.medicalNotes || 
+                    !!errors.photo || 
+                    !petForm.name || 
+                    !petForm.breed || 
+                    !petForm.age || 
+                    !petForm.weight
+                  }
+                  className="px-5 py-2 bg-brand-orange text-xs font-bold text-white rounded-xl shadow-md hover:bg-brand-orange/90 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {showAddModal ? 'Register Pet' : 'Save Changes'}
                 </button>

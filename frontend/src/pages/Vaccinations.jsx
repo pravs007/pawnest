@@ -12,6 +12,7 @@ import {
   X,
   Sparkles
 } from 'lucide-react';
+import { validateName, validateDate, validateTextarea, sanitizeInput } from '../utils/validation';
 
 const Vaccinations = () => {
   const { 
@@ -38,9 +39,69 @@ const Vaccinations = () => {
     status: 'Pending',
     notes: ''
   });
+  const [errors, setErrors] = useState({
+    name: '',
+    dateDue: '',
+    dateAdministered: '',
+    notes: ''
+  });
 
   // Filter state
   const [statusFilter, setStatusFilter] = useState('all');
+
+  const handleFieldChange = (field, val) => {
+    setVaccineForm(prev => ({ ...prev, [field]: val }));
+    let err = '';
+    if (field === 'name') {
+      const trimmedName = val.trim();
+      if (!val || trimmedName === '') {
+        err = 'Vaccine name is required';
+      } else if (trimmedName.length < 2) {
+        err = 'Vaccine name must be at least 2 characters';
+      } else if (trimmedName.length > 50) {
+        err = 'Vaccine name must be at most 50 characters';
+      }
+    } else if (field === 'dateDue') {
+      err = validateDate(val, true, 'Due date');
+    } else if (field === 'dateAdministered') {
+      if (val) {
+        err = validateDate(val, false, 'Administered date');
+      }
+    } else if (field === 'notes') {
+      if (val.trim() !== '') {
+        err = validateTextarea(val, 0, 1000, 'Notes');
+      }
+    }
+    setErrors(prev => ({ ...prev, [field]: err }));
+  };
+
+  const handleFieldBlur = (field) => {
+    const val = vaccineForm[field];
+    const trimmed = typeof val === 'string' ? val.trim() : val;
+    setVaccineForm(prev => ({ ...prev, [field]: trimmed }));
+    
+    let err = '';
+    if (field === 'name') {
+      if (!trimmed || trimmed === '') {
+        err = 'Vaccine name is required';
+      } else if (trimmed.length < 2) {
+        err = 'Vaccine name must be at least 2 characters';
+      } else if (trimmed.length > 50) {
+        err = 'Vaccine name must be at most 50 characters';
+      }
+    } else if (field === 'dateDue') {
+      err = validateDate(trimmed, true, 'Due date');
+    } else if (field === 'dateAdministered') {
+      if (trimmed) {
+        err = validateDate(trimmed, false, 'Administered date');
+      }
+    } else if (field === 'notes') {
+      if (trimmed !== '') {
+        err = validateTextarea(trimmed, 0, 1000, 'Notes');
+      }
+    }
+    setErrors(prev => ({ ...prev, [field]: err }));
+  };
 
   // Calendar Calculations
   const year = currentDate.getFullYear();
@@ -79,15 +140,43 @@ const Vaccinations = () => {
   // Submit new record
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const { petId, name, dateDue } = vaccineForm;
+    const { petId, name, dateDue, dateAdministered, status, notes } = vaccineForm;
 
-    if (!petId || !name || !dateDue) {
-      setFormError('Please select a pet, enter the vaccine name, and set a due date.');
+    let nameErr = '';
+    const trimmedName = (name || '').trim();
+    if (!name || trimmedName === '') {
+      nameErr = 'Vaccine name is required';
+    } else if (trimmedName.length < 2) {
+      nameErr = 'Vaccine name must be at least 2 characters';
+    } else if (trimmedName.length > 50) {
+      nameErr = 'Vaccine name must be at most 50 characters';
+    }
+
+    const dateDueErr = validateDate(dateDue, true, 'Due date');
+    const dateAdministeredErr = status === 'Completed' && dateAdministered ? validateDate(dateAdministered, false, 'Administered date') : '';
+    const notesErr = notes && notes.trim() !== '' ? validateTextarea(notes, 0, 1000, 'Notes') : '';
+
+    if (nameErr || dateDueErr || dateAdministeredErr || notesErr) {
+      setErrors({
+        name: nameErr,
+        dateDue: dateDueErr,
+        dateAdministered: dateAdministeredErr,
+        notes: notesErr
+      });
+      setFormError('Please resolve all validation errors.');
       return;
     }
 
     try {
-      await addVaccination(vaccineForm);
+      const sanitizedForm = {
+        petId,
+        name: sanitizeInput(name),
+        dateDue: sanitizeInput(dateDue),
+        dateAdministered: dateAdministered ? sanitizeInput(dateAdministered) : '',
+        status,
+        notes: notes ? sanitizeInput(notes) : ''
+      };
+      await addVaccination(sanitizedForm);
       setShowAddModal(false);
       setFormError('');
     } catch (err) {
@@ -243,6 +332,7 @@ const Vaccinations = () => {
                 return;
               }
               setVaccineForm({ petId: pets[0]._id || pets[0].id, name: '', dateAdministered: '', dateDue: '', status: 'Pending', notes: '' });
+              setErrors({ name: '', dateDue: '', dateAdministered: '', notes: '' });
               setFormError('');
               setShowAddModal(true);
             }}
@@ -371,10 +461,18 @@ const Vaccinations = () => {
                   type="text"
                   required
                   value={vaccineForm.name}
-                  onChange={(e) => setVaccineForm({ ...vaccineForm, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-brand-cream rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-brand-orange"
+                  onChange={(e) => handleFieldChange('name', e.target.value)}
+                  onBlur={() => handleFieldBlur('name')}
+                  className={`w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 ${
+                    errors.name 
+                      ? 'border-red-500 focus:ring-red-200 focus:border-red-500' 
+                      : 'border-brand-cream focus:ring-brand-orange'
+                  }`}
                   placeholder="e.g. DHPP, Rabies booster"
                 />
+                {errors.name && (
+                  <p className="mt-1 text-[10px] text-red-500 font-medium">{errors.name}</p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -384,15 +482,23 @@ const Vaccinations = () => {
                     type="date"
                     required
                     value={vaccineForm.dateDue}
-                    onChange={(e) => setVaccineForm({ ...vaccineForm, dateDue: e.target.value })}
-                    className="w-full px-3 py-2 border border-brand-cream rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-brand-orange"
+                    onChange={(e) => handleFieldChange('dateDue', e.target.value)}
+                    onBlur={() => handleFieldBlur('dateDue')}
+                    className={`w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 ${
+                      errors.dateDue 
+                        ? 'border-red-500 focus:ring-red-200 focus:border-red-500' 
+                        : 'border-brand-cream focus:ring-brand-orange'
+                    }`}
                   />
+                  {errors.dateDue && (
+                    <p className="mt-1 text-[10px] text-red-500 font-medium">{errors.dateDue}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-brand-dark/80 mb-1">Status</label>
                   <select
                     value={vaccineForm.status}
-                    onChange={(e) => setVaccineForm({ ...vaccineForm, status: e.target.value })}
+                    onChange={(e) => handleFieldChange('status', e.target.value)}
                     className="w-full px-3 py-2 border border-brand-cream rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-brand-orange"
                   >
                     <option value="Pending">Pending</option>
@@ -407,9 +513,17 @@ const Vaccinations = () => {
                   <input
                     type="date"
                     value={vaccineForm.dateAdministered}
-                    onChange={(e) => setVaccineForm({ ...vaccineForm, dateAdministered: e.target.value })}
-                    className="w-full px-3 py-2 border border-brand-cream rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-brand-orange"
+                    onChange={(e) => handleFieldChange('dateAdministered', e.target.value)}
+                    onBlur={() => handleFieldBlur('dateAdministered')}
+                    className={`w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 ${
+                      errors.dateAdministered 
+                        ? 'border-red-500 focus:ring-red-200 focus:border-red-500' 
+                        : 'border-brand-cream focus:ring-brand-orange'
+                    }`}
                   />
+                  {errors.dateAdministered && (
+                    <p className="mt-1 text-[10px] text-red-500 font-medium">{errors.dateAdministered}</p>
+                  )}
                 </div>
               )}
 
@@ -417,11 +531,19 @@ const Vaccinations = () => {
                 <label className="block text-xs font-semibold text-brand-dark/80 mb-1">Notes</label>
                 <textarea
                   value={vaccineForm.notes}
-                  onChange={(e) => setVaccineForm({ ...vaccineForm, notes: e.target.value })}
+                  onChange={(e) => handleFieldChange('notes', e.target.value)}
+                  onBlur={() => handleFieldBlur('notes')}
                   rows="2"
-                  className="w-full px-3 py-2 border border-brand-cream rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-brand-orange"
+                  className={`w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 ${
+                    errors.notes 
+                      ? 'border-red-500 focus:ring-red-200 focus:border-red-500' 
+                      : 'border-brand-cream focus:ring-brand-orange'
+                  }`}
                   placeholder="Dosage details, veterinarian info..."
                 />
+                {errors.notes && (
+                  <p className="mt-1 text-[10px] text-red-500 font-medium">{errors.notes}</p>
+                )}
               </div>
 
               <div className="pt-3 border-t border-brand-cream/30 flex justify-end gap-3">
@@ -434,7 +556,15 @@ const Vaccinations = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-brand-orange text-xs font-bold text-white rounded-xl shadow-md hover:bg-brand-orange/90"
+                  disabled={
+                    !!errors.name || 
+                    !!errors.dateDue || 
+                    !!errors.dateAdministered || 
+                    !!errors.notes || 
+                    !vaccineForm.name || 
+                    !vaccineForm.dateDue
+                  }
+                  className="px-5 py-2 bg-brand-orange text-xs font-bold text-white rounded-xl shadow-md hover:bg-brand-orange/90 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Record
                 </button>

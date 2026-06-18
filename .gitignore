@@ -1,0 +1,29 @@
+# Dependency directories
+node_modules/
+**/node_modules/
+
+# Production build artifacts
+dist/
+**/dist/
+build/
+**/build/
+
+# Environment files (sensitive keys)
+.env
+backend/.env
+**/.env
+
+# Local database file changes
+backend/data/*.json
+
+# Uploads directory
+backend/uploads/
+**/uploads/
+
+# OS metadata files
+.DS_Store
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

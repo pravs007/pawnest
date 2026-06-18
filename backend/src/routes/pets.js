@@ -1,6 +1,7 @@
 import express from 'express';
 import { Pet, Vaccination } from '../db/db.js';
 import { auth } from '../middleware/auth.js';
+import { validateName, validateNumber, validateTextarea, sanitizeInput } from '../utils/validation.js';
 
 const router = express.Router();
 
@@ -43,23 +44,53 @@ router.get('/:id', auth, async (req, res) => {
 // @desc    Add new pet
 // @access  Private
 router.post('/', auth, async (req, res) => {
-  const { name, breed, age, weight, medicalNotes, photo } = req.body;
+  let { name, breed, age, weight, medicalNotes, photo } = req.body;
 
   try {
     if (!name || !breed || !age || !weight) {
       return res.status(400).json({ message: 'Please provide name, breed, age, and weight' });
     }
 
+    name = (name || '').trim();
+    breed = (breed || '').trim();
+    age = String(age || '').trim();
+    weight = String(weight || '').trim();
+
+    const nameErr = validateName(name, 'Pet name');
+    const breedErr = validateName(breed, 'Breed');
+    const ageErr = validateNumber(age, 0, 30, 'Age');
+    const weightErr = validateNumber(weight, 0, 150, 'Weight');
+
+    if (nameErr || breedErr || ageErr || weightErr) {
+      return res.status(400).json({
+        message: nameErr || breedErr || ageErr || weightErr
+      });
+    }
+
+    if (medicalNotes !== undefined && medicalNotes.trim() !== '') {
+      const notesErr = validateTextarea(medicalNotes.trim(), 1, 1000, 'Medical notes');
+      if (notesErr) {
+        return res.status(400).json({ message: notesErr });
+      }
+    }
+
+    const sanitizedName = sanitizeInput(name);
+    const sanitizedBreed = sanitizeInput(breed);
+    const sanitizedAge = sanitizeInput(age);
+    const sanitizedWeight = sanitizeInput(weight);
+    const sanitizedNotes = medicalNotes ? sanitizeInput(medicalNotes.trim()) : '';
+    const sanitizedPhoto = photo ? sanitizeInput(photo.trim()) : '';
+
     const defaultPhoto = 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3'; // Cute puppy default
 
     const newPet = await Pet.create({
       owner: req.user.id,
-      name,
-      breed,
-      age,
-      weight,
-      medicalNotes: medicalNotes || '',
-      photo: photo || defaultPhoto
+      name: sanitizedName,
+      breed: sanitizedBreed,
+      age: sanitizedAge,
+      weight: sanitizedWeight,
+      medicalNotes: sanitizedNotes,
+      photo: sanitizedPhoto || defaultPhoto
     });
 
     res.status(201).json(newPet);
@@ -73,15 +104,51 @@ router.post('/', auth, async (req, res) => {
 // @desc    Update pet details
 // @access  Private
 router.put('/:id', auth, async (req, res) => {
-  const { name, breed, age, weight, medicalNotes, photo } = req.body;
+  let { name, breed, age, weight, medicalNotes, photo } = req.body;
   const updates = {};
   
-  if (name) updates.name = name;
-  if (breed) updates.breed = breed;
-  if (age) updates.age = age;
-  if (weight) updates.weight = weight;
-  if (medicalNotes !== undefined) updates.medicalNotes = medicalNotes;
-  if (photo) updates.photo = photo;
+  if (name !== undefined) {
+    const trimmed = (name || '').trim();
+    const err = validateName(trimmed, 'Pet name');
+    if (err) return res.status(400).json({ message: err });
+    updates.name = sanitizeInput(trimmed);
+  }
+  
+  if (breed !== undefined) {
+    const trimmed = (breed || '').trim();
+    const err = validateName(trimmed, 'Breed');
+    if (err) return res.status(400).json({ message: err });
+    updates.breed = sanitizeInput(trimmed);
+  }
+
+  if (age !== undefined) {
+    const trimmed = String(age || '').trim();
+    const err = validateNumber(trimmed, 0, 30, 'Age');
+    if (err) return res.status(400).json({ message: err });
+    updates.age = sanitizeInput(trimmed);
+  }
+
+  if (weight !== undefined) {
+    const trimmed = String(weight || '').trim();
+    const err = validateNumber(trimmed, 0, 150, 'Weight');
+    if (err) return res.status(400).json({ message: err });
+    updates.weight = sanitizeInput(trimmed);
+  }
+
+  if (medicalNotes !== undefined) {
+    const trimmed = (medicalNotes || '').trim();
+    if (trimmed !== '') {
+      const err = validateTextarea(trimmed, 1, 1000, 'Medical notes');
+      if (err) return res.status(400).json({ message: err });
+      updates.medicalNotes = sanitizeInput(trimmed);
+    } else {
+      updates.medicalNotes = '';
+    }
+  }
+
+  if (photo !== undefined) {
+    updates.photo = sanitizeInput(photo.trim());
+  }
 
   try {
     let pet = await Pet.findById(req.params.id);

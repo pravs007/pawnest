@@ -1,251 +1,217 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { Send, Sparkles, AlertTriangle, ArrowRight, User } from 'lucide-react';
+import { useState, useRef, useEffect } from "react";
+import { sanitizeInput } from "../utils/validation";
 
-const AIAssistant = () => {
-  const { user } = useAuth();
-  const [messages, setMessages] = useState([
-    {
-      sender: 'ai',
-      text: `### Welcome to PawNest AI Assistant! 🐾
+const SUGGESTED_QUESTIONS = [
+  "What foods are toxic to dogs?",
+  "How to start potty training a puppy?",
+  "What are warning signs of dog sickness?",
+  "Feline FVRCP vaccine schedule details",
+];
 
-I am here to help you manage your pet's wellness, nutrition, health, and behavior. Ask me anything about:
-- **Nutrition**: What foods are safe? Portion guide.
-- **Health/Medical**: Sickness signals, vaccination info.
-- **Behavior/Training**: Crate training, barking, scratching.
+export default function AIAssistant() {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const bottomRef = useRef(null);
 
-*Type your question below, or try clicking one of the suggestions!*`,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    }
-  ]);
-  const [inputText, setInputText] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-  const chatEndRef = useRef(null);
+  // Replace with real pet profile from your app's state/context if available
+  const petProfile = null; // e.g. { name: "Buddy", species: "dog", breed: "Labrador", age: 2 }
 
-  const suggestions = [
-    "What foods are toxic to dogs?",
-    "How to start potty training a puppy?",
-    "What are warning signs of dog sickness?",
-    "Feline FVRCP vaccine schedule details"
-  ];
-
-  // Auto-scroll to bottom of chat
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isTyping]);
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading]);
 
-  // Safe client-side markdown renderer for cleaner display
-  const renderMarkdown = (text) => {
-    return text.split('\n').map((line, idx) => {
-      // Headers
-      if (line.startsWith('### ')) {
-        return <h3 key={idx} className="text-sm font-extrabold text-brand-dark mt-2.5 mb-1">{line.replace('### ', '')}</h3>;
-      }
-      if (line.startsWith('#### ')) {
-        return <h4 key={idx} className="text-xs font-bold text-brand-orange mt-2 mb-0.5">{line.replace('#### ', '')}</h4>;
-      }
-      // Lists
-      if (line.startsWith('*   ') || line.startsWith('-   ') || line.startsWith('* ') || line.startsWith('- ')) {
-        const cleanLine = line.replace(/^[\*\-]\s+/, '');
-        
-        // Render bolding inside list item
-        const parts = parseBoldTags(cleanLine);
-        return <li key={idx} className="text-xs list-disc pl-4 text-brand-dark/95 my-0.5">{parts}</li>;
-      }
-      // Blank lines
-      if (line.trim() === '') {
-        return <div key={idx} className="h-1" />;
-      }
-      
-      // Inline bold tag parser
-      const parts = parseBoldTags(line);
-      return <p key={idx} className="text-xs text-brand-dark/90 leading-relaxed my-0.5">{parts}</p>;
-    });
+  const handleInputChange = (val) => {
+    setInput(val);
+    if (val.trim() === "" && val !== "") {
+      setError("Message cannot contain only spaces");
+      return;
+    }
+    const trimmed = val.trim();
+    if (trimmed.length > 0 && trimmed.length < 2) {
+      setError("Message must be at least 2 characters long");
+    } else if (trimmed.length > 500) {
+      setError("Message must be at most 500 characters long");
+    } else if (/<script|javascript:|on\w+=/i.test(trimmed)) {
+      setError("Potential script injection detected");
+    } else {
+      setError("");
+    }
   };
 
-  const parseBoldTags = (line) => {
-    const boldRegex = /\*\*(.*?)\*\*/g;
-    const parts = [];
-    let lastIndex = 0;
-    let match;
-    while ((match = boldRegex.exec(line)) !== null) {
-      if (match.index > lastIndex) {
-        parts.push(line.substring(lastIndex, match.index));
-      }
-      parts.push(<strong key={match.index} className="font-extrabold text-brand-dark">{match[1]}</strong>);
-      lastIndex = boldRegex.lastIndex;
+  const sendMessage = async (text) => {
+    const userText = text || input;
+    const trimmed = userText.trim();
+    if (!trimmed || loading) return;
+
+    if (trimmed.length < 2 || trimmed.length > 500) {
+      setError("Message must be between 2 and 500 characters long");
+      return;
     }
-    if (lastIndex < line.length) {
-      parts.push(line.substring(lastIndex));
+    if (/<script|javascript:|on\w+=/i.test(trimmed)) {
+      setError("Potential script injection detected");
+      return;
     }
-    return parts.length > 0 ? parts : line;
-  };
 
-  const sendMessage = async (textToSend) => {
-    if (!textToSend.trim()) return;
-
-    const userMessage = {
-      sender: 'user',
-      text: textToSend,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-    setInputText('');
-    setIsTyping(true);
+    setInput("");
+    setError("");
+    const sanitizedText = sanitizeInput(trimmed);
+    const userMsg = { role: "user", content: sanitizedText };
+    const updatedHistory = [...messages, userMsg];
+    setMessages(updatedHistory);
+    setLoading(true);
 
     try {
-      const res = await fetch('/api/ai/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('pawnest_token')}`
-        },
-        body: JSON.stringify({ message: textToSend })
+      const res = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: sanitizedText,
+          history: messages, // send previous messages for context
+          petProfile,
+        }),
       });
 
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || 'Model failed');
+      if (data.reply) {
+        setMessages([...updatedHistory, { role: "assistant", content: data.reply }]);
+      } else {
+        setMessages([...updatedHistory, { role: "assistant", content: "Sorry, I couldn't get a response. Please try again." }]);
       }
-
-      setMessages(prev => [...prev, {
-        sender: 'ai',
-        text: data.reply,
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      }]);
     } catch (err) {
-      console.error(err);
-      setMessages(prev => [...prev, {
-        sender: 'ai',
-        text: `### 🚨 System Warning
-Connection to AI Assistant was interrupted.
-
-Please verify that the backend node process is running and try again. Or rephrase your query.`,
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      }]);
+      setMessages([...updatedHistory, { role: "assistant", content: "Connection error. Please check your internet and try again." }]);
     } finally {
-      setIsTyping(false);
+      setLoading(false);
     }
   };
 
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      if (!error && input.trim()) {
+        sendMessage();
+      }
+    }
+  };
+
+  const formatTime = () =>
+    new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
   return (
-    <div className="flex-1 flex flex-col h-[calc(100vh-4rem)] lg:h-screen bg-brand-light p-4 lg:p-8 max-w-5xl mx-auto w-full">
-      {/* Bot Title Header */}
-      <div className="flex items-center gap-3 border-b border-brand-cream/30 pb-4 mb-4 shrink-0">
-        <div className="rounded-2xl bg-brand-orange/10 p-2 text-brand-orange">
-          <Sparkles className="h-6 w-6" />
+    <div className="flex flex-col h-full bg-[#faf7f2]">
+      {/* Header */}
+      <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-200 bg-white">
+        <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-500 text-xl">
+          ✦
         </div>
         <div>
-          <h2 className="text-xl font-extrabold text-brand-dark">PawNest AI Assistant</h2>
-          <p className="text-xs text-brand-dark/50">Personal health, diet, and training guidelines</p>
+          <h1 className="font-semibold text-gray-800 text-lg">PawNest AI Assistant</h1>
+          <p className="text-sm text-gray-500">Personal health, diet, and training guidelines</p>
         </div>
       </div>
 
-      {/* Main Panel Content */}
-      <div className="flex-1 flex flex-col min-h-0 bg-white rounded-3xl border border-brand-cream/40 shadow-sm overflow-hidden">
-        {/* Chat Feed */}
-        <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-4">
-          {messages.map((msg, index) => (
-            <div
-              key={index}
-              className={`flex items-start gap-3 max-w-[85%] ${msg.sender === 'user' ? 'ml-auto flex-row-reverse' : ''}`}
-            >
-              {/* Profile icon */}
-              <div className={`h-8 w-8 rounded-full border flex items-center justify-center shrink-0 text-sm font-bold ${
-                msg.sender === 'user' 
-                  ? 'bg-brand-orange/10 border-brand-orange/30 text-brand-orange' 
-                  : 'bg-brand-green/10 border-brand-green/30 text-brand-green'
-              }`}>
-                {msg.sender === 'user' ? <User className="h-4 w-4" /> : '🐾'}
-              </div>
-
-              {/* Message Bubble */}
-              <div>
-                <div className={`rounded-3xl p-4 shadow-sm border ${
-                  msg.sender === 'user'
-                    ? 'bg-brand-orange/15 border-brand-orange/10 rounded-tr-none text-brand-dark'
-                    : 'bg-brand-cream/20 border-brand-cream/30 rounded-tl-none text-brand-dark markdown-chat-bubble'
-                }`}>
-                  {msg.sender === 'user' ? (
-                    <p className="text-xs leading-relaxed font-semibold">{msg.text}</p>
-                  ) : (
-                    renderMarkdown(msg.text)
-                  )}
-                </div>
-                <span className={`text-[10px] text-brand-dark/40 block mt-1 ${msg.sender === 'user' ? 'text-right' : ''}`}>
-                  {msg.time}
-                </span>
-              </div>
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+        {/* Welcome card */}
+        {messages.length === 0 && (
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 max-w-2xl">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-lg">🐾</span>
+              <span className="font-semibold text-gray-800">Welcome to PawNest AI Assistant!</span>
+              <span>🐾</span>
             </div>
-          ))}
-
-          {/* Typing Buffer */}
-          {isTyping && (
-            <div className="flex items-start gap-3 max-w-[85%]">
-              <div className="h-8 w-8 rounded-full border bg-brand-green/10 border-brand-green/30 flex items-center justify-center shrink-0">
-                🐾
-              </div>
-              <div>
-                <div className="rounded-3xl p-4 bg-brand-cream/20 border border-brand-cream/30 rounded-tl-none flex items-center gap-1">
-                  <div className="h-2 w-2 bg-brand-dark/40 rounded-full animate-bounce"></div>
-                  <div className="h-2 w-2 bg-brand-dark/40 rounded-full animate-bounce [animation-delay:0.2s]"></div>
-                  <div className="h-2 w-2 bg-brand-dark/40 rounded-full animate-bounce [animation-delay:0.4s]"></div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div ref={chatEndRef} />
-        </div>
-
-        {/* Suggestion Chips */}
-        {messages.length === 1 && !isTyping && (
-          <div className="px-6 py-4 border-t border-brand-cream/30 bg-brand-cream/5 shrink-0">
-            <p className="text-xs font-bold text-brand-dark/50 uppercase tracking-wider mb-2">Try asking:</p>
-            <div className="flex flex-wrap gap-2">
-              {suggestions.map((suggest, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => sendMessage(suggest)}
-                  className="inline-flex items-center gap-1 rounded-xl bg-white border border-brand-cream/70 px-3 py-1.5 text-xs font-semibold text-brand-dark/80 hover:bg-brand-cream/40 hover:text-brand-brown transition-colors"
-                >
-                  {suggest}
-                  <ArrowRight className="h-3.5 w-3.5 text-brand-orange" />
-                </button>
-              ))}
-            </div>
+            <p className="text-gray-600 text-sm mb-3">
+              I am here to help you manage your pet's wellness, nutrition, health, and behavior. Ask me anything about:
+            </p>
+            <ul className="text-sm text-gray-600 space-y-1 ml-4 list-disc">
+              <li><span className="font-semibold text-gray-800">Nutrition:</span> What foods are safe? Portion guide.</li>
+              <li><span className="font-semibold text-gray-800">Health/Medical:</span> Sickness signals, vaccination info.</li>
+              <li><span className="font-semibold text-gray-800">Behavior/Training:</span> Crate training, barking, scratching.</li>
+            </ul>
+            <p className="text-gray-400 text-xs mt-3">*Type your question below, or try clicking one of the suggestions!</p>
+            <p className="text-gray-400 text-xs mt-1">{formatTime()}</p>
           </div>
         )}
 
-        {/* Input Bar */}
-        <div className="border-t border-brand-cream/30 p-4 shrink-0 bg-white">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              sendMessage(inputText);
-            }}
-            className="flex gap-2"
-          >
-            <input
-              type="text"
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              placeholder="Ask about pet feeding warning signals, training, vaccines..."
-              className="flex-1 px-4 py-3 border border-brand-cream bg-brand-light/10 rounded-2xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-brand-orange/20 focus:border-brand-orange transition-all"
-            />
-            <button
-              type="submit"
-              disabled={!inputText.trim() || isTyping}
-              className="rounded-2xl bg-brand-orange p-3.5 text-white shadow-md shadow-brand-orange/15 hover:bg-brand-orange/95 focus:outline-none disabled:opacity-50 disabled:shadow-none transition-all"
+        {/* Chat messages */}
+        {messages.map((msg, i) => (
+          <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+            {msg.role === "assistant" && (
+              <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-500 text-sm mr-2 mt-1 flex-shrink-0">
+                🐾
+              </div>
+            )}
+            <div
+              className={`max-w-xl px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${msg.role === "user"
+                ? "bg-orange-500 text-white rounded-br-sm"
+                : "bg-white text-gray-700 border border-gray-100 shadow-sm rounded-bl-sm"
+                }`}
             >
-              <Send className="h-4 w-4" />
-            </button>
-          </form>
+              {msg.content}
+            </div>
+          </div>
+        ))}
+
+        {/* Loading indicator */}
+        {loading && (
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-sm flex-shrink-0">🐾</div>
+            <div className="bg-white border border-gray-100 shadow-sm rounded-2xl rounded-bl-sm px-4 py-3 flex gap-1">
+              <span className="w-2 h-2 bg-orange-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+              <span className="w-2 h-2 bg-orange-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+              <span className="w-2 h-2 bg-orange-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+            </div>
+          </div>
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Suggested questions */}
+      {messages.length === 0 && (
+        <div className="px-6 pb-3">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Try asking:</p>
+          <div className="flex flex-wrap gap-2">
+            {SUGGESTED_QUESTIONS.map((q) => (
+              <button
+                key={q}
+                onClick={() => sendMessage(q)}
+                className="text-sm text-orange-600 border border-orange-200 rounded-full px-3 py-1.5 hover:bg-orange-50 transition-colors flex items-center gap-1"
+              >
+                {q} →
+              </button>
+            ))}
+          </div>
         </div>
+      )}
+
+      {/* Input */}
+      <div className="px-6 pb-6 pt-2">
+        <div className={`flex items-center gap-2 bg-white border rounded-full px-4 py-2 shadow-sm transition-all ${
+          error ? "border-red-500 focus-within:ring-2 focus-within:ring-red-200" : "border-gray-200"
+        }`}>
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => handleInputChange(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask about pet feeding, warning signals, training, vaccines..."
+            className="flex-1 text-sm text-gray-700 outline-none bg-transparent placeholder-gray-400"
+          />
+          <button
+            onClick={() => sendMessage()}
+            disabled={!input.trim() || !!error || loading}
+            className="w-9 h-9 bg-orange-400 hover:bg-orange-500 disabled:opacity-40 rounded-full flex items-center justify-center transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" className="w-4 h-4">
+              <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
+            </svg>
+          </button>
+        </div>
+        {error && (
+          <p className="mt-1.5 ml-4 text-xs text-red-500 font-semibold">{error}</p>
+        )}
       </div>
     </div>
   );
-};
-
-export default AIAssistant;
+}

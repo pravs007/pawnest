@@ -13,7 +13,6 @@ import Dashboard from './pages/Dashboard';
 import AIAssistant from './pages/AIAssistant';
 import Vaccinations from './pages/Vaccinations';
 import LostFound from './pages/LostFound';
-import Adoption from './pages/Adoption';
 import Rescue from './pages/Rescue';
 import AdminDashboard from './pages/AdminDashboard';
 
@@ -43,7 +42,6 @@ function App() {
           <Route element={<SidebarLayout />}>
             {/* Public details boards */}
             <Route path="/lost-found" element={<LostFound />} />
-            <Route path="/adoption" element={<Adoption />} />
             <Route path="/rescue" element={<Rescue />} />
 
             {/* Protected dashboard zones */}

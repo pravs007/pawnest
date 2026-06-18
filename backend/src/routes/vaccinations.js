@@ -1,8 +1,24 @@
 import express from 'express';
 import { Vaccination, Pet } from '../db/db.js';
 import { auth } from '../middleware/auth.js';
+import { validateDate, validateTextarea, sanitizeInput } from '../utils/validation.js';
 
 const router = express.Router();
+
+// Helper to validate vaccine name (allows digits/specials like DHPP 5-in-1)
+const validateVaccineName = (name) => {
+  const trimmed = (name || '').trim();
+  if (!name || trimmed === '') {
+    return 'Vaccine name is required';
+  }
+  if (trimmed.length < 2) {
+    return 'Vaccine name must be at least 2 characters';
+  }
+  if (trimmed.length > 50) {
+    return 'Vaccine name must be at most 50 characters';
+  }
+  return '';
+};
 
 // Helper to verify user owns the pet associated with the vaccine
 const verifyPetOwnership = async (petId, userId) => {
@@ -70,11 +86,29 @@ router.get('/pet/:petId', auth, async (req, res) => {
 // @desc    Add vaccination record
 // @access  Private
 router.post('/', auth, async (req, res) => {
-  const { petId, name, dateAdministered, dateDue, status, notes } = req.body;
+  let { petId, name, dateAdministered, dateDue, status, notes } = req.body;
 
   try {
     if (!petId || !name || !dateDue) {
       return res.status(400).json({ message: 'Please provide petId, name, and upcoming due date' });
+    }
+
+    petId = (petId || '').trim();
+    name = (name || '').trim();
+    dateDue = (dateDue || '').trim();
+    dateAdministered = (dateAdministered || '').trim();
+    status = (status || 'Pending').trim();
+    notes = (notes || '').trim();
+
+    const nameErr = validateVaccineName(name);
+    const dueErr = validateDate(dateDue, true, 'Due date');
+    const adminErr = dateAdministered ? validateDate(dateAdministered, false, 'Administered date') : '';
+    const notesErr = notes ? validateTextarea(notes, 1, 1000, 'Notes') : '';
+
+    if (nameErr || dueErr || adminErr || notesErr) {
+      return res.status(400).json({
+        message: nameErr || dueErr || adminErr || notesErr
+      });
     }
 
     const isOwner = await verifyPetOwnership(petId, req.user.id);
@@ -82,13 +116,19 @@ router.post('/', auth, async (req, res) => {
       return res.status(401).json({ message: 'Not authorized to add records for this pet' });
     }
 
+    const sanitizedName = sanitizeInput(name);
+    const sanitizedDue = sanitizeInput(dateDue);
+    const sanitizedAdmin = dateAdministered ? sanitizeInput(dateAdministered) : '';
+    const sanitizedStatus = sanitizeInput(status);
+    const sanitizedNotes = notes ? sanitizeInput(notes) : '';
+
     const newVaccine = await Vaccination.create({
-      petId,
-      name,
-      dateAdministered: dateAdministered || '',
-      dateDue,
-      status: status || 'Pending',
-      notes: notes || ''
+      petId: sanitizeInput(petId),
+      name: sanitizedName,
+      dateAdministered: sanitizedAdmin,
+      dateDue: sanitizedDue,
+      status: sanitizedStatus,
+      notes: sanitizedNotes
     });
 
     res.status(201).json(newVaccine);
@@ -102,14 +142,48 @@ router.post('/', auth, async (req, res) => {
 // @desc    Update vaccination record
 // @access  Private
 router.put('/:id', auth, async (req, res) => {
-  const { name, dateAdministered, dateDue, status, notes } = req.body;
+  let { name, dateAdministered, dateDue, status, notes } = req.body;
   const updates = {};
 
-  if (name) updates.name = name;
-  if (dateAdministered !== undefined) updates.dateAdministered = dateAdministered;
-  if (dateDue) updates.dateDue = dateDue;
-  if (status) updates.status = status;
-  if (notes !== undefined) updates.notes = notes;
+  if (name !== undefined) {
+    const trimmed = (name || '').trim();
+    const err = validateVaccineName(trimmed);
+    if (err) return res.status(400).json({ message: err });
+    updates.name = sanitizeInput(trimmed);
+  }
+
+  if (dateAdministered !== undefined) {
+    const trimmed = (dateAdministered || '').trim();
+    if (trimmed !== '') {
+      const err = validateDate(trimmed, false, 'Administered date');
+      if (err) return res.status(400).json({ message: err });
+      updates.dateAdministered = sanitizeInput(trimmed);
+    } else {
+      updates.dateAdministered = '';
+    }
+  }
+
+  if (dateDue !== undefined) {
+    const trimmed = (dateDue || '').trim();
+    const err = validateDate(trimmed, true, 'Due date');
+    if (err) return res.status(400).json({ message: err });
+    updates.dateDue = sanitizeInput(trimmed);
+  }
+
+  if (status !== undefined) {
+    updates.status = sanitizeInput((status || '').trim());
+  }
+
+  if (notes !== undefined) {
+    const trimmed = (notes || '').trim();
+    if (trimmed !== '') {
+      const err = validateTextarea(trimmed, 1, 1000, 'Notes');
+      if (err) return res.status(400).json({ message: err });
+      updates.notes = sanitizeInput(trimmed);
+    } else {
+      updates.notes = '';
+    }
+  }
 
   try {
     const vaccine = await Vaccination.findById(req.params.id);

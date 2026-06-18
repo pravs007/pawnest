@@ -6,7 +6,6 @@ import {
   Sparkles, 
   CalendarDays, 
   MapPin, 
-  HeartHandshake, 
   AlertTriangle, 
   ShieldCheck, 
   LogOut, 
@@ -31,7 +30,6 @@ const Sidebar = () => {
     { to: '/ai-assistant', label: 'AI Assistant', icon: Sparkles, authRequired: true },
     { to: '/vaccinations', label: 'Vaccine Tracker', icon: CalendarDays, authRequired: true },
     { to: '/lost-found', label: 'Lost & Found', icon: MapPin },
-    { to: '/adoption', label: 'Adoption Center', icon: HeartHandshake },
     { to: '/rescue', label: 'Rescue Module', icon: AlertTriangle },
   ];
 

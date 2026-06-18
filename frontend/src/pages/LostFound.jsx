@@ -13,6 +13,7 @@ import {
   AlertCircle,
   FolderOpen
 } from 'lucide-react';
+import { validateName, validatePhone, validateDate, validateTextarea, validateSearch, validateFileUpload, sanitizeInput } from '../utils/validation';
 
 const LostFound = () => {
   const { user } = useAuth();
@@ -35,6 +36,10 @@ const LostFound = () => {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [formError, setFormError] = useState('');
 
+  // File upload states
+  const [imageFile, setImageFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState('');
+
   // Form state
   const [reportForm, setReportForm] = useState({
     type: 'lost',
@@ -44,33 +49,208 @@ const LostFound = () => {
     description: '',
     location: '',
     dateLostFound: '',
-    contactPhone: '',
-    photo: ''
+    contactPhone: ''
   });
+
+  const [errors, setErrors] = useState({
+    petName: '',
+    breed: '',
+    dateLostFound: '',
+    contactPhone: '',
+    location: '',
+    description: '',
+    photo: '',
+    search: ''
+  });
+
+  const handleFieldChange = (field, val) => {
+    setReportForm(prev => ({ ...prev, [field]: val }));
+    let err = '';
+    if (field === 'petName') {
+      if (val.trim() !== '') {
+        err = validateName(val, 'Pet Name');
+      }
+    } else if (field === 'breed') {
+      if (val.trim() !== '') {
+        err = validateName(val, 'Breed');
+      }
+    } else if (field === 'dateLostFound') {
+      err = validateDate(val, false, 'Incident Date');
+    } else if (field === 'contactPhone') {
+      err = validatePhone(val, 'Contact Phone');
+    } else if (field === 'location') {
+      const trimmed = val.trim();
+      if (!val || trimmed === '') {
+        err = 'Location is required';
+      } else if (trimmed.length < 2) {
+        err = 'Location must be at least 2 characters';
+      } else if (trimmed.length > 100) {
+        err = 'Location must be at most 100 characters';
+      }
+    } else if (field === 'description') {
+      err = validateTextarea(val, 10, 1000, 'Description');
+    }
+    setErrors(prev => ({ ...prev, [field]: err }));
+  };
+
+  const handleFieldBlur = (field) => {
+    const val = reportForm[field];
+    const trimmed = typeof val === 'string' ? val.trim() : val;
+    setReportForm(prev => ({ ...prev, [field]: trimmed }));
+    
+    let err = '';
+    if (field === 'petName') {
+      if (trimmed !== '') {
+        err = validateName(trimmed, 'Pet Name');
+      }
+    } else if (field === 'breed') {
+      if (trimmed !== '') {
+        err = validateName(trimmed, 'Breed');
+      }
+    } else if (field === 'dateLostFound') {
+      err = validateDate(trimmed, false, 'Incident Date');
+    } else if (field === 'contactPhone') {
+      err = validatePhone(trimmed, 'Contact Phone');
+    } else if (field === 'location') {
+      if (!trimmed || trimmed === '') {
+        err = 'Location is required';
+      } else if (trimmed.length < 2) {
+        err = 'Location must be at least 2 characters';
+      } else if (trimmed.length > 100) {
+        err = 'Location must be at most 100 characters';
+      }
+    } else if (field === 'description') {
+      err = validateTextarea(trimmed, 10, 1000, 'Description');
+    }
+    setErrors(prev => ({ ...prev, [field]: err }));
+  };
+
+  const handleSearchChange = (val) => {
+    setSearchLocation(val);
+    const err = validateSearch(val);
+    setErrors(prev => ({ ...prev, search: err }));
+  };
+
+  // Cleanup preview URL
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
 
   // Re-fetch reports when filters change
   useEffect(() => {
+    if (errors.search) return; // Prevent fetch if search pattern contains injection
     fetchReports({
       type: filterType,
       species: filterSpecies,
       location: searchLocation,
       status: 'active' // Show only active notices
     });
-  }, [filterType, filterSpecies, searchLocation]);
+  }, [filterType, filterSpecies, searchLocation, errors.search]);
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const fileErr = validateFileUpload(file, 5);
+    if (fileErr) {
+      setErrors(prev => ({ ...prev, photo: fileErr }));
+      setFormError(fileErr);
+      return;
+    }
+
+    setErrors(prev => ({ ...prev, photo: '' }));
+    setFormError('');
+    setImageFile(file);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setPreviewUrl(URL.createObjectURL(file));
+  };
+
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setErrors(prev => ({ ...prev, photo: '' }));
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl('');
+    }
+  };
+
+  const resetForm = () => {
+    setReportForm({
+      type: 'lost',
+      petName: '',
+      species: 'Dog',
+      breed: '',
+      description: '',
+      location: '',
+      dateLostFound: new Date().toISOString().split('T')[0],
+      contactPhone: ''
+    });
+    setImageFile(null);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl('');
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const { type, species, description, location, dateLostFound, contactPhone } = reportForm;
+    const { type, petName, species, breed, description, location, dateLostFound, contactPhone } = reportForm;
 
-    if (!type || !species || !description || !location || !dateLostFound || !contactPhone) {
-      setFormError('Please enter all required fields.');
+    const petNameErr = petName && petName.trim() !== '' ? validateName(petName, 'Pet Name') : '';
+    const breedErr = breed && breed.trim() !== '' ? validateName(breed, 'Breed') : '';
+    const dateErr = validateDate(dateLostFound, false, 'Incident Date');
+    const phoneErr = validatePhone(contactPhone, 'Contact Phone');
+    const descErr = validateTextarea(description, 10, 1000, 'Description');
+    
+    let locErr = '';
+    const trimmedLoc = (location || '').trim();
+    if (!location || trimmedLoc === '') {
+      locErr = 'Location is required';
+    } else if (trimmedLoc.length < 2) {
+      locErr = 'Location must be at least 2 characters';
+    } else if (trimmedLoc.length > 100) {
+      locErr = 'Location must be at most 100 characters';
+    }
+
+    if (petNameErr || breedErr || dateErr || phoneErr || descErr || locErr || errors.photo) {
+      setErrors({
+        petName: petNameErr,
+        breed: breedErr,
+        dateLostFound: dateErr,
+        contactPhone: phoneErr,
+        description: descErr,
+        location: locErr,
+        photo: errors.photo,
+        search: errors.search
+      });
+      setFormError('Please resolve all validation errors before submitting.');
       return;
     }
 
     try {
-      await addReport(reportForm);
+      const formData = new FormData();
+      formData.append('type', type);
+      formData.append('petName', petName ? sanitizeInput(petName) : '');
+      formData.append('species', species);
+      formData.append('breed', breed ? sanitizeInput(breed) : '');
+      formData.append('description', sanitizeInput(description));
+      formData.append('location', sanitizeInput(location));
+      formData.append('dateLostFound', sanitizeInput(dateLostFound));
+      formData.append('contactPhone', sanitizeInput(contactPhone));
+      if (imageFile) {
+        formData.append('photo', imageFile);
+      }
+
+      await addReport(formData);
       setShowAddModal(false);
       setFormError('');
+      resetForm();
     } catch (err) {
       setFormError(err.message || 'Failed to submit report');
     }
@@ -117,16 +297,16 @@ const LostFound = () => {
               alert('Please sign in to submit a report.');
               return;
             }
-            setReportForm({
-              type: 'lost',
+            resetForm();
+            setErrors({
               petName: '',
-              species: 'Dog',
               breed: '',
-              description: '',
-              location: '',
-              dateLostFound: new Date().toISOString().split('T')[0],
+              dateLostFound: '',
               contactPhone: '',
-              photo: ''
+              location: '',
+              description: '',
+              photo: '',
+              search: ''
             });
             setFormError('');
             setShowAddModal(true);
@@ -181,10 +361,15 @@ const LostFound = () => {
             <input
               type="text"
               value={searchLocation}
-              onChange={(e) => setSearchLocation(e.target.value)}
-              className="w-full text-xs font-semibold border border-brand-cream rounded-xl pl-9 pr-4 p-2.5 bg-brand-light/10 focus:outline-none"
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className={`w-full text-xs font-semibold border rounded-xl pl-9 pr-4 p-2.5 bg-brand-light/10 focus:outline-none ${
+                errors.search ? 'border-red-500 focus:ring-1 focus:ring-red-200' : 'border-brand-cream'
+              }`}
               placeholder="e.g. Central Park"
             />
+            {errors.search && (
+              <p className="absolute left-0 top-full mt-1 text-[10px] text-red-500 font-medium">{errors.search}</p>
+            )}
           </div>
         </div>
       </div>
@@ -296,16 +481,24 @@ const LostFound = () => {
                   <input
                     type="text"
                     value={reportForm.petName}
-                    onChange={(e) => setReportForm({ ...reportForm, petName: e.target.value })}
-                    className="w-full px-3 py-2 border border-brand-cream rounded-xl text-sm focus:outline-none"
+                    onChange={(e) => handleFieldChange('petName', e.target.value)}
+                    onBlur={() => handleFieldBlur('petName')}
+                    className={`w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 ${
+                      errors.petName 
+                        ? 'border-red-500 focus:ring-red-200 focus:border-red-500' 
+                        : 'border-brand-cream focus:ring-brand-orange'
+                    }`}
                     placeholder="e.g. Max"
                   />
+                  {errors.petName && (
+                    <p className="mt-1 text-[10px] text-red-500 font-medium">{errors.petName}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-brand-dark/80 mb-1 font-sans">Species *</label>
                   <select
                     value={reportForm.species}
-                    onChange={(e) => setReportForm({ ...reportForm, species: e.target.value })}
+                    onChange={(e) => handleFieldChange('species', e.target.value)}
                     className="w-full px-3 py-2 border border-brand-cream rounded-xl text-sm focus:outline-none font-medium"
                   >
                     <option value="Dog">Dog</option>
@@ -320,10 +513,18 @@ const LostFound = () => {
                   <input
                     type="text"
                     value={reportForm.breed}
-                    onChange={(e) => setReportForm({ ...reportForm, breed: e.target.value })}
-                    className="w-full px-3 py-2 border border-brand-cream rounded-xl text-sm focus:outline-none"
+                    onChange={(e) => handleFieldChange('breed', e.target.value)}
+                    onBlur={() => handleFieldBlur('breed')}
+                    className={`w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 ${
+                      errors.breed 
+                        ? 'border-red-500 focus:ring-red-200 focus:border-red-500' 
+                        : 'border-brand-cream focus:ring-brand-orange'
+                    }`}
                     placeholder="e.g. Beagle"
                   />
+                  {errors.breed && (
+                    <p className="mt-1 text-[10px] text-red-500 font-medium">{errors.breed}</p>
+                  )}
                 </div>
               </div>
 
@@ -334,9 +535,17 @@ const LostFound = () => {
                     type="date"
                     required
                     value={reportForm.dateLostFound}
-                    onChange={(e) => setReportForm({ ...reportForm, dateLostFound: e.target.value })}
-                    className="w-full px-3 py-2 border border-brand-cream rounded-xl text-sm focus:outline-none"
+                    onChange={(e) => handleFieldChange('dateLostFound', e.target.value)}
+                    onBlur={() => handleFieldBlur('dateLostFound')}
+                    className={`w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 ${
+                      errors.dateLostFound 
+                        ? 'border-red-500 focus:ring-red-200 focus:border-red-500' 
+                        : 'border-brand-cream focus:ring-brand-orange'
+                    }`}
                   />
+                  {errors.dateLostFound && (
+                    <p className="mt-1 text-[10px] text-red-500 font-medium">{errors.dateLostFound}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-brand-dark/80 mb-1 font-sans">Contact Phone *</label>
@@ -344,10 +553,18 @@ const LostFound = () => {
                     type="tel"
                     required
                     value={reportForm.contactPhone}
-                    onChange={(e) => setReportForm({ ...reportForm, contactPhone: e.target.value })}
-                    className="w-full px-3 py-2 border border-brand-cream rounded-xl text-sm focus:outline-none"
-                    placeholder="+1 (555) 019-2834"
+                    onChange={(e) => handleFieldChange('contactPhone', e.target.value)}
+                    onBlur={() => handleFieldBlur('contactPhone')}
+                    className={`w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 ${
+                      errors.contactPhone 
+                        ? 'border-red-500 focus:ring-red-200 focus:border-red-500' 
+                        : 'border-brand-cream focus:ring-brand-orange'
+                    }`}
+                    placeholder="10-digit number"
                   />
+                  {errors.contactPhone && (
+                    <p className="mt-1 text-[10px] text-red-500 font-medium">{errors.contactPhone}</p>
+                  )}
                 </div>
               </div>
 
@@ -357,21 +574,51 @@ const LostFound = () => {
                   type="text"
                   required
                   value={reportForm.location}
-                  onChange={(e) => setReportForm({ ...reportForm, location: e.target.value })}
-                  className="w-full px-3 py-2 border border-brand-cream rounded-xl text-sm focus:outline-none"
+                  onChange={(e) => handleFieldChange('location', e.target.value)}
+                  onBlur={() => handleFieldBlur('location')}
+                  className={`w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 ${
+                    errors.location 
+                      ? 'border-red-500 focus:ring-red-200 focus:border-red-500' 
+                      : 'border-brand-cream focus:ring-brand-orange'
+                  }`}
                   placeholder="e.g. 5th Ave near library, Seattle"
                 />
+                {errors.location && (
+                  <p className="mt-1 text-[10px] text-red-500 font-medium">{errors.location}</p>
+                )}
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-brand-dark/80 mb-1 font-sans">Photo URL</label>
-                <input
-                  type="text"
-                  value={reportForm.photo}
-                  onChange={(e) => setReportForm({ ...reportForm, photo: e.target.value })}
-                  className="w-full px-3 py-2 border border-brand-cream rounded-xl text-sm focus:outline-none"
-                  placeholder="Paste Unsplash image URL or leave empty"
-                />
+                <label className="block text-xs font-semibold text-brand-dark/80 mb-2 font-sans">Animal Photo *</label>
+                {previewUrl ? (
+                  <div className="relative rounded-2xl border border-brand-cream/60 overflow-hidden h-40 bg-brand-light/15 flex items-center justify-center">
+                    <img src={previewUrl} alt="Preview" className="h-full w-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={handleRemoveImage}
+                      className="absolute top-2 right-2 rounded-full bg-brand-dark/70 backdrop-blur-sm p-1.5 text-white hover:bg-brand-dark transition-colors"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="border-2 border-dashed border-brand-cream rounded-2xl p-6 text-center hover:bg-brand-light/10 transition-colors relative cursor-pointer group">
+                    <input
+                      type="file"
+                      accept=".jpg,.jpeg,.png,.webp"
+                      onChange={handleFileChange}
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                    />
+                    <div className="flex flex-col items-center justify-center">
+                      <span className="text-3xl mb-2 group-hover:scale-110 transition-transform">📷</span>
+                      <p className="text-xs font-bold text-brand-dark">Click or Drag & Drop to Upload</p>
+                      <p className="text-[10px] text-brand-dark/50 mt-1">Accepts JPG, JPEG, PNG, WEBP (Max 5 MB)</p>
+                    </div>
+                  </div>
+                )}
+                {errors.photo && (
+                  <p className="mt-1 text-[10px] text-red-500 font-medium">{errors.photo}</p>
+                )}
               </div>
 
               <div>
@@ -379,11 +626,19 @@ const LostFound = () => {
                 <textarea
                   required
                   value={reportForm.description}
-                  onChange={(e) => setReportForm({ ...reportForm, description: e.target.value })}
+                  onChange={(e) => handleFieldChange('description', e.target.value)}
+                  onBlur={() => handleFieldBlur('description')}
                   rows="3"
-                  className="w-full px-3 py-2 border border-brand-cream rounded-xl text-sm focus:outline-none"
-                  placeholder="Describe distinct markings, collar detail, tag details, behavioral signals (e.g. scared, friendly)..."
+                  className={`w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 ${
+                    errors.description 
+                      ? 'border-red-500 focus:ring-red-200 focus:border-red-500' 
+                      : 'border-brand-cream focus:ring-brand-orange'
+                  }`}
+                  placeholder="Describe markings, behavior, etc. (min 10 chars)"
                 />
+                {errors.description && (
+                  <p className="mt-1 text-[10px] text-red-500 font-medium">{errors.description}</p>
+                )}
               </div>
 
               <div className="pt-3 border-t border-brand-cream/30 flex justify-end gap-3">
@@ -396,7 +651,20 @@ const LostFound = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-brand-orange text-xs font-bold text-white rounded-xl shadow-md hover:bg-brand-orange/90"
+                  disabled={
+                    !!errors.petName || 
+                    !!errors.breed || 
+                    !!errors.dateLostFound || 
+                    !!errors.contactPhone || 
+                    !!errors.location || 
+                    !!errors.description || 
+                    !!errors.photo || 
+                    !reportForm.location || 
+                    !reportForm.dateLostFound || 
+                    !reportForm.contactPhone || 
+                    !reportForm.description
+                  }
+                  className="px-5 py-2 bg-brand-orange text-xs font-bold text-white rounded-xl shadow-md hover:bg-brand-orange/90 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Publish Report
                 </button>
@@ -411,7 +679,7 @@ const LostFound = () => {
       ---------------------------------------------------- */}
       {showDetailModal && selectedReport && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand-dark/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-lg bg-white rounded-3xl border border-brand-cream/60 shadow-2xl overflow-hidden max-h-[95vh] flex flex-col">
+          <div className="w-full max-w-lg bg-white rounded-3xl border border-brand-cream/60 shadow-2xl overflow-hidden max-h-[85vh] flex flex-col" style={{ maxHeight: '85vh' }}>
             {/* Image banner */}
             <div className="relative h-60 bg-brand-cream/20 shrink-0">
               <img
