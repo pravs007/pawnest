@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from "react";
-import { sanitizeInput } from "../utils/validation";
 
 const SUGGESTED_QUESTIONS = [
   "What foods are toxic to dogs?",
@@ -11,7 +10,6 @@ const SUGGESTED_QUESTIONS = [
 export default function AIAssistant() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef(null);
 
@@ -22,42 +20,12 @@ export default function AIAssistant() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  const handleInputChange = (val) => {
-    setInput(val);
-    if (val.trim() === "" && val !== "") {
-      setError("Message cannot contain only spaces");
-      return;
-    }
-    const trimmed = val.trim();
-    if (trimmed.length > 0 && trimmed.length < 2) {
-      setError("Message must be at least 2 characters long");
-    } else if (trimmed.length > 500) {
-      setError("Message must be at most 500 characters long");
-    } else if (/<script|javascript:|on\w+=/i.test(trimmed)) {
-      setError("Potential script injection detected");
-    } else {
-      setError("");
-    }
-  };
-
   const sendMessage = async (text) => {
-    const userText = text || input;
-    const trimmed = userText.trim();
-    if (!trimmed || loading) return;
-
-    if (trimmed.length < 2 || trimmed.length > 500) {
-      setError("Message must be between 2 and 500 characters long");
-      return;
-    }
-    if (/<script|javascript:|on\w+=/i.test(trimmed)) {
-      setError("Potential script injection detected");
-      return;
-    }
+    const userText = text || input.trim();
+    if (!userText || loading) return;
 
     setInput("");
-    setError("");
-    const sanitizedText = sanitizeInput(trimmed);
-    const userMsg = { role: "user", content: sanitizedText };
+    const userMsg = { role: "user", content: userText };
     const updatedHistory = [...messages, userMsg];
     setMessages(updatedHistory);
     setLoading(true);
@@ -67,20 +35,33 @@ export default function AIAssistant() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: sanitizedText,
-          history: messages, // send previous messages for context
+          message: userText,
+          history: messages,
           petProfile,
         }),
       });
 
       const data = await res.json();
-      if (data.reply) {
+
+      // Handle rate limit errors (429 = too many requests)
+      if (res.status === 429) {
+        setMessages([...updatedHistory, {
+          role: "assistant",
+          content: data.error || "⚠️ Too many messages! Please slow down and try again in a moment. 🐾"
+        }]);
+      } else if (data.reply) {
         setMessages([...updatedHistory, { role: "assistant", content: data.reply }]);
       } else {
-        setMessages([...updatedHistory, { role: "assistant", content: "Sorry, I couldn't get a response. Please try again." }]);
+        setMessages([...updatedHistory, {
+          role: "assistant",
+          content: "Sorry, I couldn't get a response. Please try again."
+        }]);
       }
     } catch (err) {
-      setMessages([...updatedHistory, { role: "assistant", content: "Connection error. Please check your internet and try again." }]);
+      setMessages([...updatedHistory, {
+        role: "assistant",
+        content: "Connection error. Please check your internet and try again."
+      }]);
     } finally {
       setLoading(false);
     }
@@ -89,9 +70,7 @@ export default function AIAssistant() {
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (!error && input.trim()) {
-        sendMessage();
-      }
+      sendMessage();
     }
   };
 
@@ -145,7 +124,9 @@ export default function AIAssistant() {
             <div
               className={`max-w-xl px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${msg.role === "user"
                 ? "bg-orange-500 text-white rounded-br-sm"
-                : "bg-white text-gray-700 border border-gray-100 shadow-sm rounded-bl-sm"
+                : msg.content.startsWith("⚠️")
+                  ? "bg-orange-50 text-orange-700 border border-orange-200 shadow-sm rounded-bl-sm"
+                  : "bg-white text-gray-700 border border-gray-100 shadow-sm rounded-bl-sm"
                 }`}
             >
               {msg.content}
@@ -187,20 +168,18 @@ export default function AIAssistant() {
 
       {/* Input */}
       <div className="px-6 pb-6 pt-2">
-        <div className={`flex items-center gap-2 bg-white border rounded-full px-4 py-2 shadow-sm transition-all ${
-          error ? "border-red-500 focus-within:ring-2 focus-within:ring-red-200" : "border-gray-200"
-        }`}>
+        <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-full px-4 py-2 shadow-sm">
           <input
             type="text"
             value={input}
-            onChange={(e) => handleInputChange(e.target.value)}
+            onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Ask about pet feeding, warning signals, training, vaccines..."
             className="flex-1 text-sm text-gray-700 outline-none bg-transparent placeholder-gray-400"
           />
           <button
             onClick={() => sendMessage()}
-            disabled={!input.trim() || !!error || loading}
+            disabled={!input.trim() || loading}
             className="w-9 h-9 bg-orange-400 hover:bg-orange-500 disabled:opacity-40 rounded-full flex items-center justify-center transition-colors"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" className="w-4 h-4">
@@ -208,9 +187,6 @@ export default function AIAssistant() {
             </svg>
           </button>
         </div>
-        {error && (
-          <p className="mt-1.5 ml-4 text-xs text-red-500 font-semibold">{error}</p>
-        )}
       </div>
     </div>
   );

@@ -1,7 +1,15 @@
 import React, { useState } from 'react';
 import { useAppData } from '../context/AppDataContext';
 import { useAuth } from '../context/AuthContext';
-import { validateName, validateNumber, validateTextarea, validateFileUpload, sanitizeInput } from '../utils/validation';
+import { 
+  validateName, 
+  validatePetAge, 
+  validatePetWeight, 
+  validatePetBreed, 
+  validateTextarea, 
+  validateFileUpload, 
+  sanitizeInput 
+} from '../utils/validation';
 import { 
   Plus, 
   Trash2, 
@@ -15,6 +23,19 @@ import {
   X,
   FileText
 } from 'lucide-react';
+
+const DEFAULT_PET_PHOTO = 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=500&auto=format&fit=crop&q=60';
+
+// Guard against corrupted photo values (HTML-entity encoded slashes from old sanitizeInput bug)
+const getPhotoSrc = (photo) => {
+  if (!photo) return DEFAULT_PET_PHOTO;
+  // A valid photo is either a proper data URI or an http(s) URL
+  if (photo.startsWith('data:image/') || photo.startsWith('http://') || photo.startsWith('https://') || photo.startsWith('/uploads/')) {
+    return photo;
+  }
+  // Corrupted (e.g. "data:image&#x2F;jpeg;base64," with no actual data) — use fallback
+  return DEFAULT_PET_PHOTO;
+};
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -69,11 +90,11 @@ const Dashboard = () => {
     if (field === 'name') {
       err = validateName(val, 'Pet Name');
     } else if (field === 'breed') {
-      err = validateName(val, 'Breed / Species');
+      err = validatePetBreed(val);
     } else if (field === 'age') {
-      err = validateNumber(val, 0, 30, 'Pet Age');
+      err = validatePetAge(val);
     } else if (field === 'weight') {
-      err = validateNumber(val, 0, 150, 'Weight');
+      err = validatePetWeight(val);
     } else if (field === 'medicalNotes') {
       if (val.trim() !== '') {
         err = validateTextarea(val, 0, 1000, 'Medical & Behavior Notes');
@@ -91,11 +112,11 @@ const Dashboard = () => {
     if (field === 'name') {
       err = validateName(trimmed, 'Pet Name');
     } else if (field === 'breed') {
-      err = validateName(trimmed, 'Breed / Species');
+      err = validatePetBreed(trimmed);
     } else if (field === 'age') {
-      err = validateNumber(trimmed, 0, 30, 'Pet Age');
+      err = validatePetAge(trimmed);
     } else if (field === 'weight') {
-      err = validateNumber(trimmed, 0, 150, 'Weight');
+      err = validatePetWeight(trimmed);
     } else if (field === 'medicalNotes') {
       if (trimmed !== '') {
         err = validateTextarea(trimmed, 0, 1000, 'Medical & Behavior Notes');
@@ -172,9 +193,9 @@ const Dashboard = () => {
     const { name, breed, age, weight, medicalNotes, photo } = petForm;
     
     const nameErr = validateName(name, 'Pet Name');
-    const breedErr = validateName(breed, 'Breed / Species');
-    const ageErr = validateNumber(age, 0, 30, 'Pet Age');
-    const weightErr = validateNumber(weight, 0, 150, 'Weight');
+    const breedErr = validatePetBreed(breed);
+    const ageErr = validatePetAge(age);
+    const weightErr = validatePetWeight(weight);
     const notesErr = medicalNotes && medicalNotes.trim() !== '' 
       ? validateTextarea(medicalNotes, 0, 1000, 'Medical & Behavior Notes') 
       : '';
@@ -314,17 +335,18 @@ const Dashboard = () => {
           </button>
         </div>
       ) : (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="flex gap-5 overflow-x-auto pb-3" style={{ scrollbarWidth: 'thin', scrollbarColor: '#e8d5c4 transparent' }}>
           {pets.map((pet) => (
             <div
               key={pet._id || pet.id}
               onClick={() => openDetailModal(pet)}
-              className="group relative flex flex-col rounded-2xl border border-brand-cream/40 bg-white overflow-hidden shadow-sm hover-card cursor-pointer"
+              className="group relative flex flex-col rounded-2xl border border-brand-cream/40 bg-white overflow-hidden shadow-sm hover-card cursor-pointer flex-shrink-0"
+              style={{ width: '260px' }}
             >
               {/* Image */}
               <div className="h-44 w-full bg-brand-cream/10 overflow-hidden relative">
                 <img
-                  src={pet.photo || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=500&auto=format&fit=crop&q=60'}
+                  src={getPhotoSrc(pet.photo)}
                   alt={pet.name}
                   className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
                 />
@@ -579,7 +601,7 @@ const Dashboard = () => {
             {/* Header */}
             <div className="relative h-56 bg-brand-cream/20 shrink-0">
               <img
-                src={selectedPet.photo || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=500&auto=format&fit=crop&q=60'}
+                src={getPhotoSrc(selectedPet.photo)}
                 alt={selectedPet.name}
                 className="h-full w-full object-cover"
               />

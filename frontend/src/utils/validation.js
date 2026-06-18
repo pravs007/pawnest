@@ -7,6 +7,16 @@
  */
 export const sanitizeInput = (val) => {
   if (typeof val !== 'string') return val;
+  // Don't escape slashes in data URLs, http(s) URLs, or upload paths — they must remain intact
+  if (
+    val.startsWith('data:image/') ||
+    val.startsWith('http://') ||
+    val.startsWith('https://') ||
+    val.startsWith('/uploads/') ||
+    val.startsWith('uploads/')
+  ) {
+    return val.trim();
+  }
   return val
     .trim()
     .replace(/&/g, "&amp;")
@@ -31,13 +41,13 @@ export const validateName = (name, fieldLabel = 'Name') => {
   if (trimmed.length > 50) {
     return `${fieldLabel} must be at most 50 characters`;
   }
-  // Letters and spaces only (including common letters/punctuation like accents/apostrophes is fine, but standard is letters & spaces)
-  if (!/^[a-zA-Z\s]+$/.test(trimmed)) {
-    return `${fieldLabel} must contain only letters and spaces`;
+  // Letters, spaces, apostrophes, and hyphens only
+  if (!/^[a-zA-Z\s'-]+$/.test(trimmed)) {
+    return `${fieldLabel} must contain only letters, spaces, apostrophes, and hyphens`;
   }
-  // Prevent repeated special characters (e.g., consecutive spaces)
-  if (/\s{2,}/.test(trimmed)) {
-    return `${fieldLabel} must not contain consecutive spaces`;
+  // Prevent repeated special characters
+  if (/[\s'-]{2,}/.test(trimmed)) {
+    return `${fieldLabel} must not contain consecutive special characters`;
   }
   return '';
 };
@@ -213,5 +223,60 @@ export const validateFileUpload = (file, maxSizeMB = 5) => {
     return `File size exceeds the ${maxSizeMB} MB limit`;
   }
 
+  return '';
+};
+
+/**
+ * Validates pet age
+ */
+export const validatePetAge = (age) => {
+  const trimmed = String(age || '').trim();
+  if (trimmed === '') {
+    return 'Please enter a valid age between 0 and 30 years.';
+  }
+  // Must be numeric only, no negative values, no alphabets/specials (only digits and decimal point)
+  if (!/^\d+(\.\d+)?$/.test(trimmed)) {
+    return 'Please enter a valid age between 0 and 30 years.';
+  }
+  const num = Number(trimmed);
+  if (num < 0 || num > 30) {
+    return 'Please enter a valid age between 0 and 30 years.';
+  }
+  return '';
+};
+
+/**
+ * Validates pet weight
+ */
+export const validatePetWeight = (weight) => {
+  const trimmed = String(weight || '').trim();
+  if (trimmed === '') {
+    return 'Please enter a valid weight between 0.1 kg and 200 kg.';
+  }
+  // Must be numeric only, no negative values, no alphabets/specials (only digits and decimal point)
+  if (!/^\d+(\.\d+)?$/.test(trimmed)) {
+    return 'Please enter a valid weight between 0.1 kg and 200 kg.';
+  }
+  const num = Number(trimmed);
+  if (num < 0.1 || num > 200) {
+    return 'Please enter a valid weight between 0.1 kg and 200 kg.';
+  }
+  return '';
+};
+
+/**
+ * Validates pet breed/species
+ */
+export const validatePetBreed = (breed) => {
+  const trimmed = (breed || '').trim();
+  if (!breed || trimmed === '') {
+    return 'Breed / Species is required';
+  }
+  if (trimmed.length < 2) {
+    return 'Breed / Species must be at least 2 characters';
+  }
+  if (trimmed.length > 50) {
+    return 'Breed / Species must be at most 50 characters';
+  }
   return '';
 };
