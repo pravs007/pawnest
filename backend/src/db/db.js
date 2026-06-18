@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const useLocal = process.env.USE_LOCAL_DB === 'true';
+console.log("🐾 DB System: Startup database mode is", process.env.USE_LOCAL_DB === 'true' ? 'Local JSON' : 'MongoDB Atlas');
 
 // ----------------------------------------------------
 // 1. MONGOOSE SCHEMA & MODEL DEFINITIONS
@@ -68,28 +68,41 @@ const rescueSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
-let MongooseUser, MongoosePet, MongooseVaccination, MongooseLostFoundReport, MongooseRescueRequest;
-
-if (!useLocal) {
-  MongooseUser = mongoose.model('User', userSchema);
-  MongoosePet = mongoose.model('Pet', petSchema);
-  MongooseVaccination = mongoose.model('Vaccination', vaccinationSchema);
-  MongooseLostFoundReport = mongoose.model('LostFoundReport', lostFoundSchema);
-  MongooseRescueRequest = mongoose.model('RescueRequest', rescueSchema);
-}
+const MongooseUser = mongoose.model('User', userSchema);
+const MongoosePet = mongoose.model('Pet', petSchema);
+const MongooseVaccination = mongoose.model('Vaccination', vaccinationSchema);
+const MongooseLostFoundReport = mongoose.model('LostFoundReport', lostFoundSchema);
+const MongooseRescueRequest = mongoose.model('RescueRequest', rescueSchema);
 
 // ----------------------------------------------------
 // 2. EXPORTED DUAL MODELS & DB CONNECTION HELPERS
 // ----------------------------------------------------
 
-export const User = useLocal ? getLocalModel('User') : MongooseUser;
-export const Pet = useLocal ? getLocalModel('Pet') : MongoosePet;
-export const Vaccination = useLocal ? getLocalModel('Vaccination') : MongooseVaccination;
-export const LostFoundReport = useLocal ? getLocalModel('LostFoundReport') : MongooseLostFoundReport;
-export const RescueRequest = useLocal ? getLocalModel('RescueRequest') : MongooseRescueRequest;
+// Helper to dynamically select local vs mongoose model at query time
+const getModel = (name, mongooseModel) => {
+  return new Proxy({}, {
+    get(target, prop) {
+      const activeModel = (process.env.USE_LOCAL_DB === 'true') 
+        ? getLocalModel(name) 
+        : mongooseModel;
+      
+      const value = activeModel[prop];
+      if (typeof value === 'function') {
+        return value.bind(activeModel);
+      }
+      return value;
+    }
+  });
+};
+
+export const User = getModel('User', MongooseUser);
+export const Pet = getModel('Pet', MongoosePet);
+export const Vaccination = getModel('Vaccination', MongooseVaccination);
+export const LostFoundReport = getModel('LostFoundReport', MongooseLostFoundReport);
+export const RescueRequest = getModel('RescueRequest', MongooseRescueRequest);
 
 export const connectDB = async () => {
-  if (useLocal) {
+  if (process.env.USE_LOCAL_DB === 'true') {
     console.log('🐾 DB System: Running in Local JSON Database Mode (Persisted in backend/data/*.json)');
     return true;
   }
@@ -101,9 +114,9 @@ export const connectDB = async () => {
   } catch (err) {
     console.error(`🚨 MongoDB Connection Error: ${err.message}`);
     console.log('🐾 DB System Fallback: Reverting to Local JSON Database Mode');
-    
-    // Dynamically override models to use local DB fallback
-    global.USE_LOCAL_FALLBACK = true;
+
+    // Enable local DB fallback by updating the flag
+    process.env.USE_LOCAL_DB = 'true';
     return false;
   }
 };

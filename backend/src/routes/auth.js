@@ -5,11 +5,16 @@ import { User } from '../db/db.js';
 import { auth } from '../middleware/auth.js';
 import dotenv from 'dotenv';
 import { validateName, validateEmail, validatePassword, sanitizeInput } from '../utils/validation.js';
+import { sendWelcomeEmail } from '../utils/sendEmail.js';
 
 dotenv.config();
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'pawnest_super_secret_jwt_key_987654321';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.error('🚨 [SECURITY] JWT_SECRET is missing from environment. Refusing to start.');
+  process.exit(1);
+}
 
 // @route   POST api/auth/register
 // @desc    Register a user
@@ -66,6 +71,7 @@ router.post('/register', async (req, res) => {
     // Sign JWT
     const token = jwt.sign({ id: newUser._id || newUser.id }, JWT_SECRET, { expiresIn: '7d' });
 
+    // Respond to the client immediately — don't wait for email
     res.status(201).json({
       token,
       user: {
@@ -76,6 +82,21 @@ router.post('/register', async (req, res) => {
         avatar: newUser.avatar
       }
     });
+
+    // Send welcome email asynchronously (non-blocking)
+    // Registration succeeds even if email delivery fails
+    sendWelcomeEmail({ name: newUser.name, email: newUser.email })
+      .then((result) => {
+        if (result.success) {
+          console.log(`✅ [Auth] Welcome email delivered to ${newUser.email}`);
+        } else {
+          console.warn(`⚠️  [Auth] Welcome email skipped for ${newUser.email}: ${result.reason || result.error}`);
+        }
+      })
+      .catch((err) => {
+        console.error(`❌ [Auth] Welcome email error for ${newUser.email}:`, err.message);
+      });
+
   } catch (err) {
     console.error('Registration error:', err);
     res.status(500).json({ message: 'Server error during registration' });

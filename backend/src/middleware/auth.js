@@ -4,7 +4,11 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'pawnest_super_secret_jwt_key_987654321';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.error('🚨 [SECURITY] JWT_SECRET is not set in environment variables. Server cannot start securely.');
+  process.exit(1);
+}
 
 export const auth = async (req, res, next) => {
   try {

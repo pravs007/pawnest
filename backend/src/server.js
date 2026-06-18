@@ -1,3 +1,10 @@
+// Environment validation MUST run before anything else
+import './utils/validateEnv.js';
+
+import helmet from 'helmet';
+
+import mongoSanitize from 'express-mongo-sanitize';
+import xssClean from 'xss-clean';
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -20,10 +27,16 @@ const __dirname = path.dirname(__filename);
 dotenv.config();
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 5000;
 
 // Initialize Database
 connectDB();
+
+app.use(helmet());
+app.use(mongoSanitize());
+app.use(xssClean());
+
 
 // Middlewares
 app.use(cors());

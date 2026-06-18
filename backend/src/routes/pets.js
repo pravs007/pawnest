@@ -1,7 +1,7 @@
 import express from 'express';
 import { Pet, Vaccination } from '../db/db.js';
 import { auth } from '../middleware/auth.js';
-import { validateName, validateNumber, validateTextarea, sanitizeInput } from '../utils/validation.js';
+import { validateName, validatePetAge, validatePetWeight, validatePetBreed, validateTextarea, sanitizeInput } from '../utils/validation.js';
 
 const router = express.Router();
 
@@ -57,9 +57,9 @@ router.post('/', auth, async (req, res) => {
     weight = String(weight || '').trim();
 
     const nameErr = validateName(name, 'Pet name');
-    const breedErr = validateName(breed, 'Breed');
-    const ageErr = validateNumber(age, 0, 30, 'Age');
-    const weightErr = validateNumber(weight, 0, 150, 'Weight');
+    const breedErr = validatePetBreed(breed);
+    const ageErr = validatePetAge(age);
+    const weightErr = validatePetWeight(weight);
 
     if (nameErr || breedErr || ageErr || weightErr) {
       return res.status(400).json({
@@ -116,21 +116,21 @@ router.put('/:id', auth, async (req, res) => {
   
   if (breed !== undefined) {
     const trimmed = (breed || '').trim();
-    const err = validateName(trimmed, 'Breed');
+    const err = validatePetBreed(trimmed);
     if (err) return res.status(400).json({ message: err });
     updates.breed = sanitizeInput(trimmed);
   }
 
   if (age !== undefined) {
     const trimmed = String(age || '').trim();
-    const err = validateNumber(trimmed, 0, 30, 'Age');
+    const err = validatePetAge(trimmed);
     if (err) return res.status(400).json({ message: err });
     updates.age = sanitizeInput(trimmed);
   }
 
   if (weight !== undefined) {
     const trimmed = String(weight || '').trim();
-    const err = validateNumber(trimmed, 0, 150, 'Weight');
+    const err = validatePetWeight(trimmed);
     if (err) return res.status(400).json({ message: err });
     updates.weight = sanitizeInput(trimmed);
   }
